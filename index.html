@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RATIO ENGINE — Polyphonic Synthesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --a:#d4920c; --ab:#eaaa20; --ad:#7a550a;
+  --bg:#070706; --s1:#0d0d0b; --s2:#151513;
+  --bd:#1d1d19; --tx:#b0ac9c; --txd:#484640;
+  --red:#b84020; --cya:#208898;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  min-height:100vh; padding:18px 18px 14px;
+  display:flex; flex-direction:column; gap:12px;
+}
+.hdr{
+  display:flex; justify-content:space-between;
+  align-items:flex-end; border-bottom:1px solid var(--bd);
+  padding-bottom:10px;
+}
+.ttl{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:21px;letter-spacing:.3em;color:var(--a);}
+.ttl .sub{display:block;font-weight:300;font-size:10px;letter-spacing:.2em;color:var(--txd);margin-top:1px;}
+.phi{text-align:right;font-size:10px;color:var(--txd);line-height:1.7;}
+.phi em{font-style:normal;color:var(--a);}
+canvas{
+  width:100%; height:150px; display:block;
+  border:1px solid var(--bd); background:#040403;
+}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.card{
+  background:var(--s1); border:1px solid var(--bd);
+  padding:10px 10px 8px; position:relative; overflow:hidden;
+}
+.card::after{
+  content:''; position:absolute;
+  top:0; left:0; right:0; height:2px;
+  background:var(--bd); transition:background .08s;
+}
+.card.fire{border-color:#4a3010;}
+.card.fire::after{background:var(--ab);}
+.c-idx{font-size:9px;color:var(--txd);letter-spacing:.2em;}
+.c-wv{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--a);margin:1px 0;}
+.c-pn{font-size:9px;color:var(--txd);letter-spacing:.08em;margin-bottom:6px;}
+.c-hz{font-size:20px;color:var(--tx);line-height:1;}
+.c-hz .u{font-size:10px;color:var(--txd);}
+.c-rt{font-size:11px;color:var(--ad);margin:3px 0 1px;}
+.c-rt em{font-style:normal;color:var(--a);}
+.c-mt{
+  font-size:9px; display:inline-block;
+  padding:1px 5px; background:var(--s2);
+  border:1px solid var(--bd); letter-spacing:.08em;
+}
+.c-mt.pure{color:var(--txd);}
+.c-mt.odd{color:var(--red);border-color:var(--red);}
+.c-mt.sum{color:var(--cya);border-color:var(--cya);}
+.dots{display:flex;gap:2px;margin-top:7px;flex-wrap:wrap;}
+.dot{width:5px;height:5px;background:var(--bd);}
+.dot.hit{background:var(--ad);}
+.dot.now{background:var(--ab);}
+.legend{
+  font-size:9px; color:var(--txd); letter-spacing:.1em;
+  border:1px solid var(--bd); padding:6px 10px;
+  background:var(--s1); display:flex; gap:14px; flex-wrap:wrap;
+}
+.legend span{color:var(--ad);}
+.legend em{font-style:normal;color:var(--a);}
+.legend .odd{color:var(--red);}
+.legend .sum{color:var(--cya);}
+.ctrls{
+  display:flex; gap:20px; align-items:center;
+  flex-wrap:wrap; border-top:1px solid var(--bd);
+  padding-top:10px;
+}
+#playBtn{
+  font-family:'Rajdhani',sans-serif; font-weight:700;
+  font-size:13px; letter-spacing:.25em;
+  background:transparent; border:1px solid var(--a);
+  color:var(--a); padding:7px 20px; cursor:pointer;
+  text-transform:uppercase; transition:background .15s,color .15s;
+  flex-shrink:0;
+}
+#playBtn:hover,#playBtn.on{background:var(--a);color:var(--bg);}
+.cl{display:flex;flex-direction:column;gap:3px;}
+.cl-lbl{font-size:9px;color:var(--txd);letter-spacing:.15em;}
+.cl-row{display:flex;align-items:center;gap:7px;}
+.cl-val{font-size:11px;color:var(--a);min-width:52px;}
+input[type=range]{
+  -webkit-appearance:none; appearance:none;
+  width:85px; height:1px; background:var(--bd);
+  outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:10px; height:10px;
+  background:var(--a); cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:10px; height:10px; background:var(--a);
+  border:none; cursor:pointer;
+}
+.stat{font-size:9px;color:var(--txd);letter-spacing:.1em;margin-left:auto;}
+.stat em{font-style:normal;color:var(--tx);}
+footer{
+  font-size:9px; color:var(--txd); letter-spacing:.2em;
+  border-top:1px solid var(--bd); padding-top:8px; text-align:center;
+}
+@media (max-width:768px) {
+  .grid{grid-template-columns:repeat(2,1fr);}
+  .ctrls{gap:12px;}
+  input[type=range]{width:60px;}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="ttl">RATIO ENGINE<span class="sub">POLYPHONIC FREQUENCY SYNTHESIS SYSTEM</span></div>
+  </div>
+  <div class="phi">
+    φ = <em>1.6180339887</em><br>
+    fib: <em>1·1·2·3·5·8·13·21</em>
+  </div>
+</div>
+
+<canvas id="scope"></canvas>
+
+<div class="grid" id="cards"></div>
+
+<div class="legend">
+  <span>METHOD TAGS →</span>
+  <div>PURE: simple harmonic ratio (just intonation)</div>
+  <div class="odd">ODD: non-standard ratio (microtonal / spectral)</div>
+  <div class="sum">SUM: a/b + c/d (sums of two ratios)</div>
+</div>
+
+<div class="ctrls">
+  <button id="playBtn">▶ PLAY</button>
+  <div class="cl">
+    <div class="cl-lbl">BASE FREQ</div>
+    <div class="cl-row">
+      <input type="range" id="baseCtrl" min="55" max="220" value="110" step="1">
+      <span class="cl-val" id="baseVal">110 Hz</span>
+    </div>
+  </div>
+  <div class="cl">
+    <div class="cl-lbl">TEMPO</div>
+    <div class="cl-row">
+      <input type="range" id="bpmCtrl" min="40" max="140" value="72" step="1">
+      <span class="cl-val" id="bpmVal">72 BPM</span>
+    </div>
+  </div>
+  <div class="cl">
+    <div class="cl-lbl">ODD PROB</div>
+    <div class="cl-row">
+      <input type="range" id="oddCtrl" min="0" max="60" value="15" step="1">
+      <span class="cl-val" id="oddVal">15%</span>
+    </div>
+  </div>
+  <div class="cl">
+    <div class="cl-lbl">REVERB</div>
+    <div class="cl-row">
+      <input type="range" id="revCtrl" min="0" max="100" value="25" step="1">
+      <span class="cl-val" id="revVal">25%</span>
+    </div>
+  </div>
+  <div class="stat" id="stat">— IDLE —</div>
+</div>
+
+<footer>euclidean rhythm · fibonacci spacing · golden ratio durations · just intonation · stochastic polyphony</footer>
+
+<script>
+const PHI = 1.6180339887498948;
+
+const SR = [
+  {n:1,d:1,l:'unison'}, {n:2,d:1,l:'octave'}, {n:3,d:2,l:'P5'},
+  {n:4,d:3,l:'P4'},     {n:5,d:4,l:'M3'},      {n:6,d:5,l:'m3'},
+  {n:5,d:3,l:'M6'},     {n:8,d:5,l:'m6'},       {n:9,d:8,l:'M2'},
+  {n:16,d:9,l:'m7'},    {n:15,d:8,l:'M7'},      {n:7,d:4,l:'n7'},
+  {n:3,d:1,l:'12th'},   {n:4,d:1,l:'2oct'},     {n:5,d:2,l:'M10'},
+  {n:9,d:5,l:'M6·b'},   {n:10,d:9,l:'M2·b'},    {n:27,d:16,l:'M6+'},
+];
+
+const OR = [
+  {n:7,d:6,l:'7:6'},    {n:11,d:8,l:'11:8'},   {n:13,d:8,l:'13:8'},
+  {n:7,d:5,l:'7:5'},    {n:11,d:7,l:'11:7'},   {n:13,d:9,l:'13:9'},
+  {n:17,d:12,l:'17:12'},{n:19,d:16,l:'19:16'},  {n:11,d:6,l:'11:6'},
+  {n:21,d:16,l:'21:16'},{n:23,d:16,l:'23:16'},  {n:13,d:7,l:'13:7'},
+];
+
+const VD = [
+  {
+    nm:'DRONE',  wv:'sine',     oct:0,
+    pat:[1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],  pn:'E(1·16)',
+    dur: b => b*PHI*PHI,
+    gn:0.22, op:0.05, at:0.22, rl:1.1,
+    ft:'lowpass',  ff:380, fq:0.7,
+  },
+  {
+    nm:'HARMONY',wv:'triangle', oct:1,
+    pat:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,0],  pn:'E(3·16)',
+    dur: b => b*PHI,
+    gn:0.13, op:0.12, at:0.04, rl:0.42,
+    ft:'bandpass', ff:820, fq:2.1,
+  },
+  {
+    nm:'PULSE',  wv:'square',   oct:2,
+    pat:[1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0],  pn:'E(5·16)',
+    dur: b => b/PHI,
+    gn:0.052, op:0.10, at:0.005, rl:0.06,
+    ft:'lowpass',  ff:2200, fq:1.6,
+  },
+  {
+    nm:'TEXTURE',wv:'sawtooth', oct:2,
+    pat:[1,0,0,1, 0,0,0,0, 1,0,0,1, 0,0,0,0],  pn:'FIB(3·5)',
+    dur: b => b*PHI,
+    gn:0.068, op:0.25, at:0.028, rl:0.78,
+    ft:'lowpass',  ff:1450, fq:3.4,
+  },
+];
+
+let BASE = 110, BPM = 72, ODD_SL = 0.15;
+let actx=null, mGain=null, dGain=null, rGain=null, anlz=null, conv=null;
+let playing=false, tid=null;
+const vnext=[0,0,0,0], vstep=[0,0,0,0], vcur=[{},{},{},{}];
+
+function gcd(a,b){ return b<1?a:gcd(b,a%b); }
+
+function pick(baseProb){
+  const p = Math.min(baseProb*(ODD_SL/0.15), 1);
+  const pool = Math.random()<p ? OR : SR;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function getFreq(vi){
+  const v = VD[vi];
+  let n, d, l, mt;
+  const r1 = pick(v.op);
+
+  if(Math.random() < 0.18){
+    const r2 = SR[Math.floor(Math.random()*SR.length)];
+    n = r1.n*r2.d + r2.n*r1.d;
+    d = r1.d * r2.d;
+    const g = gcd(n, d); n/=g; d/=g;
+    l = `${r1.n}/${r1.d}+${r2.n}/${r2.d}`;
+    mt = 'SUM';
+  } else {
+    n=r1.n; d=r1.d; l=r1.l;
+    mt = OR.find(o=>o.n===n&&o.d===d) ? 'ODD' : 'PURE';
+  }
+
+  const f = Math.min(BASE*(n/d)*Math.pow(2,v.oct), 3800);
+  return {f, n, d, l, mt};
+}
+
+function initAudio(){
+  actx = new(window.AudioContext||window.webkitAudioContext)();
+  mGain = actx.createGain(); mGain.gain.value = 0.8;
+  anlz  = actx.createAnalyser(); anlz.fftSize=2048; anlz.smoothingTimeConstant=0.82;
+  dGain = actx.createGain(); dGain.gain.value = 0.75;
+  rGain = actx.createGain(); rGain.gain.value = 0.25;
+  conv  = makeRev(actx);
+  mGain.connect(dGain); mGain.connect(rGain);
+  dGain.connect(anlz); rGain.connect(conv); conv.connect(anlz);
+  anlz.connect(actx.destination);
+}
+
+function makeRev(c){
+  const cv = c.createConvolver(), sr=c.sampleRate, len=Math.floor(sr*2.2);
+  const buf = c.createBuffer(2,len,sr);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.8);
+  }
+  cv.buffer=buf; return cv;
+}
+
+function playNote(vi, t, info){
+  const v=VD[vi], beat=60/BPM, dur=v.dur(beat);
+  const osc=actx.createOscillator(), flt=actx.createBiquadFilter(), env=actx.createGain();
+
+  osc.type=v.wv; osc.frequency.value=info.f;
+  flt.type=v.ft; flt.frequency.value=v.ff; flt.Q.value=v.fq;
+
+  const pk=v.gn;
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.linearRampToValueAtTime(pk, t+v.at);
+  env.gain.exponentialRampToValueAtTime(pk*0.5, t+Math.max(v.at+0.01, dur*0.3));
+  env.gain.setValueAtTime(pk*0.5, t+Math.max(dur-0.15, dur*0.65));
+  env.gain.linearRampToValueAtTime(0.0001, t+dur+v.rl);
+
+  osc.connect(flt); flt.connect(env); env.connect(mGain);
+  osc.start(t); osc.stop(t+dur+v.rl+0.1);
+
+  const delay=Math.max(0,(t-actx.currentTime)*1000);
+  setTimeout(()=>{
+    vcur[vi]=info;
+    updateCard(vi, vstep[vi]%16);
+    const card=document.getElementById('c'+vi);
+    if(card){ card.classList.add('fire'); setTimeout(()=>card.classList.remove('fire'),150); }
+  }, delay);
+}
+
+function tick(){
+  if(!playing||!actx) return;
+  const now=actx.currentTime;
+  for(let vi=0;vi<4;vi++){
+    while(vnext[vi] < now+0.1) stepVoice(vi, vnext[vi]);
+  }
+}
+
+function stepVoice(vi, t){
+  const v=VD[vi];
+  const stepDur = (60/BPM)/4;
+  const s = vstep[vi]%16;
+  if(v.pat[s]) playNote(vi, t, getFreq(vi));
+  vstep[vi]++;
+  vnext[vi] = t + stepDur;
+}
+
+const cv=document.getElementById('scope'), cx=cv.getContext('2d');
+
+function rsz(){
+  const dpr=window.devicePixelRatio||1;
+  cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr;
+}
+
+function drawWaveform(buf,w,h,color,lw){
+  cx.strokeStyle=color; cx.lineWidth=lw; cx.beginPath();
+  const sl=w/buf.length;
+  for(let i=0;i<buf.length;i++){
+    const y=((buf[i]+1)/2)*h;
+    i===0 ? cx.moveTo(0,y) : cx.lineTo(i*sl,y);
+  }
+  cx.stroke();
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  const w=cv.width, h=cv.height;
+  cx.fillStyle='rgba(4,4,3,0.35)'; cx.fillRect(0,0,w,h);
+
+  cx.strokeStyle='#141412'; cx.lineWidth=0.5;
+  for(let i=1;i<4;i++){cx.beginPath();cx.moveTo(0,h/4*i);cx.lineTo(w,h/4*i);cx.stroke();}
+  for(let i=1;i<8;i++){cx.beginPath();cx.moveTo(w/8*i,0);cx.lineTo(w/8*i,h);cx.stroke();}
+
+  if(!anlz||!playing){
+    cx.strokeStyle='#242420'; cx.lineWidth=1;
+    cx.beginPath(); cx.moveTo(0,h/2); cx.lineTo(w,h/2); cx.stroke();
+    return;
+  }
+
+  const buf=new Float32Array(anlz.frequencyBinCount);
+  anlz.getFloatTimeDomainData(buf);
+  drawWaveform(buf, w, h, 'rgba(212,146,12,0.07)', 8);
+  drawWaveform(buf, w, h, '#d4920c', 1.3);
+}
+
+function buildCards(){
+  const el=document.getElementById('cards'); el.innerHTML='';
+  VD.forEach((v,vi)=>{
+    const d=document.createElement('div');
+    d.className='card'; d.id='c'+vi;
+    d.innerHTML=
+      `<div class="c-idx">V${vi+1} · OCT +${v.oct}</div>`+
+      `<div class="c-wv">${v.wv.toUpperCase()}</div>`+
+      `<div class="c-pn">${v.pn}</div>`+
+      `<div class="c-hz" id="cf${vi}">—<span class="u"> Hz</span></div>`+
+      `<div class="c-rt" id="cr${vi}">—∶—</div>`+
+      `<div class="c-mt pure" id="cm${vi}">—</div>`+
+      `<div class="dots" id="cd${vi}">${v.pat.map((b,j)=>
+        `<div class="dot${b?' hit':''}" id="d${vi}_${j}"></div>`).join('')}</div>`;
+    el.appendChild(d);
+  });
+}
+
+function updateCard(vi, curStep){
+  const info=vcur[vi]; if(!info.f) return;
+  const fe=document.getElementById('cf'+vi);
+  if(fe) fe.innerHTML=`${info.f.toFixed(1)}<span class="u"> Hz</span>`;
+  const re=document.getElementById('cr'+vi);
+  if(re) re.innerHTML=`<em>${info.n}∶${info.d}</em> = ${(info.n/info.d).toFixed(4)}`;
+  const me=document.getElementById('cm'+vi);
+  if(me){
+    me.textContent = info.mt==='SUM' ? `SUM: ${info.l}` : info.l;
+    me.className = `c-mt ${info.mt.toLowerCase()}`;
+  }
+  VD[vi].pat.forEach((_,j)=>{
+    const dot=document.getElementById(`d${vi}_${j}`);
+    if(dot) dot.className='dot'+(VD[vi].pat[j]?' hit':'')+(j===curStep?' now':'');
+  });
+}
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  if(!playing){
+    if(!actx) initAudio();
+    else if(actx.state==='suspended') actx.resume();
+    playing=true;
+    const now=actx.currentTime+0.05;
+    for(let i=0;i<4;i++){ vnext[i]=now; vstep[i]=0; }
+    tid=setInterval(tick,25);
+    document.getElementById('playBtn').textContent='■ STOP';
+    document.getElementById('playBtn').classList.add('on');
+    document.getElementById('stat').innerHTML='STATUS: <em>RUNNING</em>';
+  } else {
+    playing=false; clearInterval(tid);
+    document.getElementById('playBtn').textContent='▶ PLAY';
+    document.getElementById('playBtn').classList.remove('on');
+    document.getElementById('stat').textContent='— IDLE —';
+  }
+});
+
+document.getElementById('baseCtrl').addEventListener('input',e=>{
+  BASE=+e.target.value;
+  document.getElementById('baseVal').textContent=BASE+' Hz';
+});
+document.getElementById('bpmCtrl').addEventListener('input',e=>{
+  BPM=+e.target.value;
+  document.getElementById('bpmVal').textContent=BPM+' BPM';
+});
+document.getElementById('oddCtrl').addEventListener('input',e=>{
+  ODD_SL=+e.target.value/100;
+  document.getElementById('oddVal').textContent=e.target.value+'%';
+});
+document.getElementById('revCtrl').addEventListener('input',e=>{
+  const rv=+e.target.value/100;
+  if(rGain) rGain.gain.value=rv;
+  if(dGain) dGain.gain.value=Math.max(0.2,1-rv*0.4);
+  document.getElementById('revVal').textContent=e.target.value+'%';
+});
+
+window.addEventListener('resize',rsz);
+buildCards(); rsz(); draw();
+</script>
+</body>
+</html>
