@@ -9,8 +9,7 @@ Interactive math-inspired synthesis experiments in Web Audio + Python.
 ## What this project includes
 
 - Browser synth playground: `index.html`
-- Python synthesis engine: `chaos-musical.py` + `src/`
-- Extra generators: `5.3-codex.py`, `gem-3.py`
+- Standalone Python generator: `scripts/ratio_rhythm_music.py`
 
 ## Browser synth highlights
 
@@ -43,9 +42,7 @@ pip install numpy scipy
 ### Generate audio (Python)
 
 ```bash
-python3 chaos-musical.py --seed 42 --duration 32 --bpm 110 --output quadratonic_math_ambient.wav
-python3 5.3-codex.py --seed 42 --duration 30 --bpm 96 --output ratio_rhythm_music.wav
-python3 gem-3.py
+python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output ratio_rhythm_music.wav
 ```
 
 ## Next session TODO
