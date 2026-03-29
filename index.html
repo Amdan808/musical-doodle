@@ -11,8 +11,14 @@
 <body>
 
 <div class="hdr">
-  <div>
+  <div class="hdr-title">
     <div class="ttl">RATIO ENGINE<span class="sub">POLYPHONIC FREQUENCY SYNTHESIS SYSTEM</span></div>
+  </div>
+  <div class="hdr-main-btns">
+    <button id="playBtn">▶ PLAY</button>
+    <button id="musicToggleBtn" class="toggle-btn on">MUSIC ON</button>
+    <button id="kickToggleBtn" class="toggle-btn on">KICK ON</button>
+    <button id="noiseToggleBtn" class="toggle-btn on">NOISE ON</button>
   </div>
   <div class="phi">
     φ = <em>1.6180339887</em><br>
@@ -71,9 +77,6 @@
 </div>
 
 <div class="ctrls">
-  <button id="playBtn">▶ PLAY</button>
-  <button id="musicToggleBtn" class="toggle-btn on">MUSIC ON</button>
-  <button id="noiseToggleBtn" class="toggle-btn on">NOISE ON</button>
   <div class="cl">
     <div class="cl-lbl">BASE FREQ</div>
     <div class="cl-row">
@@ -147,7 +150,7 @@
   <div class="stat" id="stat">— IDLE —</div>
 </div>
 
-<footer>kick-guided pulse · hat-pattern sequencing · saw motion (filter/FM/AM) · low-end headroom · M = music toggle · N = noise toggle</footer>
+<footer>kick-guided pulse · hat-pattern sequencing · saw motion (filter/FM/AM) · low-end headroom · M = music toggle · K = kick mute · N = noise toggle</footer>
 
 <script src="app.js"></script>
 </body>

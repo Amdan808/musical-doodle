@@ -264,6 +264,10 @@ let ODD_SL = 0.03;
 let NOISE_TYPE = "brown";
 let NOISE_LVL = 0.05;
 const OSC_LVLS = [1.00, 1.00, 0.65, 0.65];
+const SAW_LEGATO_VOICE_INDEX = 3;
+const SAW_MONO_GLIDE_SECONDS = 0.095;
+const SAW_START_ATTACK_SECONDS = 0.22;
+const SAW_START_FILTER_SWELL_SECONDS = 0.20;
 let actx = null;
 let mGain = null;
 let kickBus = null;
@@ -273,6 +277,7 @@ let melodyGate = null;
 let kickGate = null;
 let hatGate = null;
 let musicMuted = false;
+let kickMuted = false;
 let noiseEnabled = true;
 let noiseNode = null;
 let melodyHP = null;
@@ -287,6 +292,7 @@ let kickAnalyser = null;
 let hatAnalyser = null;
 let conv = null;
 let hatNoiseBuffer = null;
+let sawLegatoVoice = null;
 let playing = false;
 let tid = null;
 let globalStep = 0;
@@ -581,6 +587,7 @@ function getFreq(vi, ctx, stepState) {
 }
 
 function resetMusicalState() {
+  stopSawLegatoVoice(actx ? actx.currentTime : 0);
   globalStep = 0;
   nextStepTime = 0;
   for (let i = 0; i < voiceState.length; i++) {
@@ -639,6 +646,9 @@ function statusModeSuffix() {
   if (musicMuted) {
     tags.push("NO MUSIC");
   }
+  if (kickMuted) {
+    tags.push("NO KICK");
+  }
   if (!noiseEnabled) {
     tags.push("NO NOISE");
   }
@@ -661,7 +671,7 @@ function applyMusicMuteState() {
     melodyGate.gain.value = gateValue;
   }
   if (kickGate) {
-    kickGate.gain.value = gateValue;
+    kickGate.gain.value = musicMuted || kickMuted ? 0 : 1;
   }
   if (hatGate) {
     hatGate.gain.value = gateValue;
@@ -678,6 +688,11 @@ function syncToggleButtons() {
   if (musicBtn) {
     musicBtn.textContent = musicMuted ? "MUSIC OFF" : "MUSIC ON";
     musicBtn.className = `toggle-btn ${musicMuted ? "off" : "on"}`;
+  }
+  const kickBtn = document.getElementById("kickToggleBtn");
+  if (kickBtn) {
+    kickBtn.textContent = kickMuted ? "KICK OFF" : "KICK ON";
+    kickBtn.className = `toggle-btn ${kickMuted ? "off" : "on"}`;
   }
   const noiseBtn = document.getElementById("noiseToggleBtn");
   if (noiseBtn) {
@@ -718,6 +733,16 @@ function setNoiseEnabled(enabled) {
 
 function setMusicEnabled(enabled) {
   musicMuted = !enabled;
+  if (musicMuted) {
+    stopSawLegatoVoice(actx ? actx.currentTime : 0);
+  }
+  applyMusicMuteState();
+  syncToggleButtons();
+  persistSettings();
+}
+
+function setKickEnabled(enabled) {
+  kickMuted = !enabled;
   applyMusicMuteState();
   syncToggleButtons();
   persistSettings();
@@ -727,6 +752,7 @@ function applyControlTooltips() {
   const tips = [
     ["playBtn", "Start or stop playback"],
     ["musicToggleBtn", "Toggle music layer on/off"],
+    ["kickToggleBtn", "Mute or unmute the kick (Shortcut: K)"],
     ["noiseToggleBtn", "Toggle noise layer on/off (Shortcut: N)"],
     ["baseCtrl", "Base frequency in Hz"],
     ["scaleCtrl", "Harmony scale mode"],
@@ -769,6 +795,7 @@ function persistSettings() {
       reverb: rGain ? rGain.gain.value : 0.8,
       oscLevels: OSC_LVLS.slice(),
       musicEnabled: !musicMuted,
+      kickEnabled: !kickMuted,
       noiseEnabled,
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(payload));
@@ -879,6 +906,11 @@ function applyStoredSettings() {
   } else {
     syncToggleButtons();
   }
+  if (typeof saved.kickEnabled === "boolean") {
+    setKickEnabled(saved.kickEnabled);
+  } else {
+    syncToggleButtons();
+  }
   if (typeof saved.noiseEnabled === "boolean") {
     setNoiseEnabled(saved.noiseEnabled);
   }
@@ -900,7 +932,7 @@ function initAudio() {
   mGain = actx.createGain();
   mGain.gain.value = 0.58;
   kickBus = actx.createGain();
-  kickBus.gain.value = 0.95;
+  kickBus.gain.value = 0.41;
   hatBus = actx.createGain();
   hatBus.gain.value = 0.62;
   noiseBus = actx.createGain();
@@ -919,12 +951,12 @@ function initAudio() {
 
   kickHP = actx.createBiquadFilter();
   kickHP.type = "highpass";
-  kickHP.frequency.value = 32;
+  kickHP.frequency.value = 24;
   kickHP.Q.value = 0.7;
 
   kickLP = actx.createBiquadFilter();
   kickLP.type = "lowpass";
-  kickLP.frequency.value = 220;
+  kickLP.frequency.value = 145;
   kickLP.Q.value = 0.8;
 
   anlz = actx.createAnalyser();
@@ -1150,6 +1182,9 @@ function addSawMotion(osc, flt, amp, baseLevel, t, dur, info) {
 }
 
 function playNote(vi, t, info, curStep) {
+  if (musicMuted) {
+    return;
+  }
   const v = VD[vi];
   const beat = 60 / BPM;
   const dur = v.dur(beat);
@@ -1197,6 +1232,88 @@ function playNote(vi, t, info, curStep) {
   }, delay);
 }
 
+function sawLegatoTargetGain() {
+  const v = VD[SAW_LEGATO_VOICE_INDEX];
+  const oscLevel = OSC_LVLS[SAW_LEGATO_VOICE_INDEX] ?? 0.5;
+  return Math.max(0.0001, v.gn * 0.95 * oscLevel);
+}
+
+function sawLegatoCutoff(freq) {
+  return Math.min(2200, Math.max(700, freq * 0.92));
+}
+
+function stopSawLegatoVoice(stopTime = actx ? actx.currentTime : 0) {
+  if (!sawLegatoVoice || !actx) {
+    sawLegatoVoice = null;
+    return;
+  }
+  const voice = sawLegatoVoice;
+  sawLegatoVoice = null;
+  const releaseAt = Math.max(stopTime, actx.currentTime);
+  voice.amp.gain.cancelScheduledValues(releaseAt);
+  voice.amp.gain.setTargetAtTime(0.0001, releaseAt, 0.045);
+  voice.osc.stop(releaseAt + 0.22);
+  voice.osc.onended = () => {
+    voice.osc.disconnect();
+    voice.flt.disconnect();
+    voice.amp.disconnect();
+  };
+}
+
+function playSawLegato(vi, t, info, curStep) {
+  if (!actx || !mGain || musicMuted) {
+    return;
+  }
+
+  const startAt = Math.max(t, actx.currentTime);
+  const targetGain = sawLegatoTargetGain();
+  const targetCutoff = sawLegatoCutoff(info.f);
+  let isNewVoice = false;
+  if (!sawLegatoVoice) {
+    isNewVoice = true;
+    const osc = actx.createOscillator();
+    const flt = actx.createBiquadFilter();
+    const amp = actx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(info.f, startAt);
+    flt.type = "lowpass";
+    flt.frequency.setValueAtTime(Math.max(220, targetCutoff * 0.30), startAt);
+    flt.frequency.linearRampToValueAtTime(targetCutoff, startAt + SAW_START_FILTER_SWELL_SECONDS);
+    flt.Q.setValueAtTime(1.05, startAt);
+    amp.gain.setValueAtTime(0.0001, startAt);
+    amp.gain.linearRampToValueAtTime(targetGain, startAt + SAW_START_ATTACK_SECONDS);
+    osc.connect(flt);
+    flt.connect(amp);
+    amp.connect(mGain);
+    if (voiceAnalyzers[vi]) {
+      amp.connect(voiceAnalyzers[vi]);
+    }
+    osc.start(startAt);
+    sawLegatoVoice = { osc, flt, amp };
+  }
+
+  const glideTau = SAW_MONO_GLIDE_SECONDS / 4;
+  sawLegatoVoice.osc.frequency.cancelScheduledValues(startAt);
+  sawLegatoVoice.osc.frequency.setTargetAtTime(info.f, startAt, glideTau);
+  sawLegatoVoice.flt.frequency.cancelScheduledValues(startAt);
+  if (!isNewVoice) {
+    sawLegatoVoice.flt.frequency.setTargetAtTime(targetCutoff, startAt, glideTau);
+    sawLegatoVoice.amp.gain.cancelScheduledValues(startAt);
+    sawLegatoVoice.amp.gain.setTargetAtTime(targetGain, startAt, 0.04);
+  }
+
+  const delay = Math.max(0, (startAt - actx.currentTime) * 1000);
+  setTimeout(() => {
+    vcur[vi] = info;
+    updateCard(vi, curStep);
+    const card = document.getElementById(`c${vi}`);
+    if (card) {
+      card.classList.add("fire");
+      setTimeout(() => card.classList.remove("fire"), 150);
+    }
+  }, delay);
+}
+
 function duckMelodyForKick(t) {
   if (!mGain) {
     return;
@@ -1208,7 +1325,7 @@ function duckMelodyForKick(t) {
 }
 
 function playKick(t, accent) {
-  if (!actx || !kickBus) {
+  if (!actx || !kickBus || kickMuted || musicMuted) {
     return;
   }
 
@@ -1217,28 +1334,30 @@ function playKick(t, accent) {
   const body = actx.createOscillator();
   const bodyEnv = actx.createGain();
   body.type = "sine";
-  body.frequency.setValueAtTime(148, t);
-  body.frequency.exponentialRampToValueAtTime(46, t + 0.12);
+  body.frequency.setValueAtTime(118, t);
+  body.frequency.exponentialRampToValueAtTime(42, t + 0.18);
   bodyEnv.gain.setValueAtTime(0.0001, t);
-  bodyEnv.gain.exponentialRampToValueAtTime(0.92 * accent, t + 0.006);
-  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.30);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.66 * accent, t + 0.022);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.52 * accent, t + 0.11);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.58);
   body.connect(bodyEnv);
   bodyEnv.connect(kickBus);
   body.start(t);
-  body.stop(t + 0.33);
+  body.stop(t + 0.66);
 
   const click = actx.createOscillator();
   const clickEnv = actx.createGain();
-  click.type = "triangle";
-  click.frequency.setValueAtTime(1700, t);
-  click.frequency.exponentialRampToValueAtTime(650, t + 0.018);
+  click.type = "sine";
+  click.frequency.setValueAtTime(900, t);
+  click.frequency.exponentialRampToValueAtTime(280, t + 0.014);
   clickEnv.gain.setValueAtTime(0.0001, t);
-  clickEnv.gain.exponentialRampToValueAtTime(0.20 * accent, t + 0.001);
-  clickEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.028);
+  clickEnv.gain.exponentialRampToValueAtTime(0.032 * accent, t + 0.0032);
+  clickEnv.gain.setValueAtTime(0.016 * accent, t + 0.008);
+  clickEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.036);
   click.connect(clickEnv);
   clickEnv.connect(kickBus);
   click.start(t);
-  click.stop(t + 0.04);
+  click.stop(t + 0.07);
 }
 
 function getHatEvent(curStep) {
@@ -1257,7 +1376,7 @@ function getHatEvent(curStep) {
 }
 
 function playHat(t, accent, open) {
-  if (!actx || !hatBus || !hatNoiseBuffer) {
+  if (!actx || !hatBus || !hatNoiseBuffer || musicMuted) {
     return;
   }
 
@@ -1298,20 +1417,31 @@ function scheduleStep(stepTime, stepIndex) {
     applyHatPattern(HAT_PATTERN_KEYS[nextIndex]);
   }
 
-  if (KICK_PATTERN[curStep]) {
-    playKick(stepTime, curStep === 0 ? 1.0 : 0.78);
-  }
-
-  const hatEvent = getHatEvent(curStep);
-  if (hatEvent) {
-    playHat(stepTime + hatEvent.offset, hatEvent.accent, hatEvent.open);
-  }
-
-  for (let vi = 0; vi < 4; vi++) {
-    if (VD[vi].pat[curStep]) {
-      playNote(vi, stepTime, getFreq(vi, ctx, stepState), curStep);
+  if (!musicMuted) {
+    if (KICK_PATTERN[curStep] && !kickMuted) {
+      playKick(stepTime, curStep === 0 ? 1.0 : 0.78);
     }
-    updateCard(vi, curStep);
+
+    const hatEvent = getHatEvent(curStep);
+    if (hatEvent) {
+      playHat(stepTime + hatEvent.offset, hatEvent.accent, hatEvent.open);
+    }
+
+    for (let vi = 0; vi < 4; vi++) {
+      if (VD[vi].pat[curStep]) {
+        const noteInfo = getFreq(vi, ctx, stepState);
+        if (vi === SAW_LEGATO_VOICE_INDEX && VD[vi].wv === "sawtooth") {
+          playSawLegato(vi, stepTime, noteInfo, curStep);
+        } else {
+          playNote(vi, stepTime, noteInfo, curStep);
+        }
+      }
+      updateCard(vi, curStep);
+    }
+  } else {
+    for (let vi = 0; vi < 4; vi++) {
+      updateCard(vi, curStep);
+    }
   }
 
   if (ctx.stepInBar === 0 && playing) {
@@ -1351,6 +1481,10 @@ const HISTORY_SIZE = 8192;
 let sampleHistory = new Float32Array(HISTORY_SIZE);
 let historyPos = 0;
 let lastPeakDb = -60;
+const MASTER_SCOPE_ZOOM = 24;
+const MASTER_SCOPE_GAIN = 3.8;
+const SCOPE_REFRESH_INTERVAL_MS = 1000 / 23;
+let scopeNextDrawTime = 0;
 
 function rsz() {
   const dpr = window.devicePixelRatio || 1;
@@ -1368,13 +1502,14 @@ function rsz() {
   });
 }
 
-function drawWaveform(buf, w, h, color, lw) {
+function drawWaveform(buf, w, h, color, lw, gainBoost = 1) {
   cx.strokeStyle = color;
   cx.lineWidth = lw;
   cx.beginPath();
   const sl = w / buf.length;
   for (let i = 0; i < buf.length; i++) {
-    const y = ((buf[i] + 1) / 2) * h;
+    const sample = Math.max(-1, Math.min(1, buf[i] * gainBoost));
+    const y = ((sample + 1) / 2) * h;
     if (i === 0) {
       cx.moveTo(0, y);
     } else {
@@ -1423,6 +1558,11 @@ function drawMiniScope(ctx2d, canvasEl, analyzer, activeColor, gainBoost = 1) {
 
 function draw() {
   requestAnimationFrame(draw);
+  const nowMs = performance.now();
+  if (nowMs < scopeNextDrawTime) {
+    return;
+  }
+  scopeNextDrawTime = nowMs + SCOPE_REFRESH_INTERVAL_MS;
   const w = cv.width;
   const h = cv.height;
   cx.fillStyle = "rgba(4,4,3,0.35)";
@@ -1494,15 +1634,15 @@ function draw() {
     }
     historyPos = (historyPos + buf.length) % HISTORY_SIZE;
 
-    const displayLen = Math.min(HISTORY_SIZE, w * 4);
+    const displayLen = Math.max(16, Math.min(HISTORY_SIZE, Math.round((w * 4) / MASTER_SCOPE_ZOOM)));
     const drawBuf = new Float32Array(displayLen);
     for (let i = 0; i < displayLen; i++) {
       const srcIdx = (historyPos - displayLen + i + HISTORY_SIZE) % HISTORY_SIZE;
       drawBuf[i] = sampleHistory[srcIdx];
     }
 
-    drawWaveform(drawBuf, w, h, "rgba(212,146,12,0.07)", 8);
-    drawWaveform(drawBuf, w, h, "#d4920c", 1.3);
+    drawWaveform(drawBuf, w, h, "rgba(212,146,12,0.07)", 8, MASTER_SCOPE_GAIN);
+    drawWaveform(drawBuf, w, h, "#d4920c", 1.3, MASTER_SCOPE_GAIN);
   }
 
   const harmonyBoosts = [8.0, 16.0, 16.0, 16.0];
@@ -1562,6 +1702,11 @@ function bindOscLevelControls() {
       const nextPct = +e.target.value;
       OSC_LVLS[i] = nextPct / 100;
       val.textContent = `${nextPct}%`;
+      if (i === SAW_LEGATO_VOICE_INDEX && sawLegatoVoice && actx) {
+        const now = actx.currentTime;
+        sawLegatoVoice.amp.gain.cancelScheduledValues(now);
+        sawLegatoVoice.amp.gain.setTargetAtTime(sawLegatoTargetGain(), now, 0.03);
+      }
       persistSettings();
     };
   }
@@ -1611,6 +1756,7 @@ document.getElementById("playBtn").addEventListener("click", () => {
   } else {
     playing = false;
     clearInterval(tid);
+    stopSawLegatoVoice(actx ? actx.currentTime : 0);
     if (noiseNode) {
       noiseNode.stop();
       noiseNode.disconnect();
@@ -1685,6 +1831,10 @@ document.getElementById("musicToggleBtn").addEventListener("click", () => {
   setMusicEnabled(musicMuted);
 });
 
+document.getElementById("kickToggleBtn").addEventListener("click", () => {
+  setKickEnabled(kickMuted);
+});
+
 document.getElementById("noiseToggleBtn").addEventListener("click", () => {
   setNoiseEnabled(!noiseEnabled);
 });
@@ -1700,6 +1850,8 @@ document.addEventListener("keydown", (e) => {
   }
   if (key === "m") {
     setMusicEnabled(musicMuted);
+  } else if (key === "k") {
+    setKickEnabled(kickMuted);
   } else {
     setNoiseEnabled(!noiseEnabled);
   }
