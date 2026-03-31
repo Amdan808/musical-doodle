@@ -17,9 +17,22 @@ Interactive math-inspired synthesis experiments in Web Audio + Python.
 - Master + 6 analysis scopes (4 harmony, kick, hi-hat)
 - Brown/white/pink noise with level and ON/OFF control
 - Music ON/OFF and Noise ON/OFF toggles
-- Shortcut keys: `M` = music toggle, `N` = noise toggle
+- Mood Presets templates (Night Drive, Deep Focus, Warm Bloom, Aurora Mist)
+- Shortcut keys: `M` = music toggle, `K` = kick toggle, `N` = noise toggle
 - Auto hi-hat pattern switching every 8 bars
 - Persistent UI settings via `localStorage`
+
+## Mood Presets
+
+Use the `MOOD PRESET` selector in the control row to instantly apply a full template for composition and mix behavior.
+
+- `Night Drive`: faster, darker, punchier.
+- `Deep Focus`: minimal, low-noise, steady.
+- `Warm Bloom`: softer and more spacious.
+- `Aurora Mist`: airy, slow, ambient.
+- `Custom`: active when you manually tweak controls after loading a preset.
+
+Preset choice and all related settings are persisted to `localStorage`.
 
 ## Quick start
 

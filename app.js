@@ -175,8 +175,144 @@ const HAT_PATTERNS = {
   },
 };
 
+const DEFAULT_SOUND_SETTINGS = {
+  kickBusGain: 0.34,
+  hatBusGain: 0.44,
+  kickHPFreq: 36,
+  kickHPQ: 0.55,
+  kickMidFreq: 250,
+  kickMidQ: 2.5,
+  kickMidGain: -6,
+  kickLPFreq: 145,
+  kickLPQ: 0.55,
+  kickBodyPeak: 0.56,
+  kickBodySustain: 0.30,
+  kickBodySustainTime: 0.082,
+  kickBodyReleaseTime: 0.36,
+  kickBodyStopTime: 0.42,
+  kickClickPeak: 0.024,
+  kickClickHold: 0.011,
+};
+
+const MOOD_PRESETS = {
+  custom: {
+    label: "Custom",
+  },
+  nightDrive: {
+    label: "Night Drive",
+    base: 58,
+    bpm: 112,
+    odd: 0.08,
+    scale: "minor",
+    hatMode: "syncopated",
+    noiseType: "pink",
+    noiseLevel: 0.03,
+    reverb: 0.38,
+    oscLevels: [1.0, 0.9, 0.72, 0.58],
+    musicEnabled: true,
+    kickEnabled: true,
+    noiseEnabled: true,
+    sound: {
+      kickBusGain: 0.36,
+      hatBusGain: 0.40,
+      kickHPFreq: 40,
+      kickMidFreq: 260,
+      kickMidQ: 2.8,
+      kickMidGain: -7,
+      kickClickPeak: 0.028,
+      kickClickHold: 0.012,
+    },
+  },
+  deepFocus: {
+    label: "Deep Focus",
+    base: 55,
+    bpm: 74,
+    odd: 0.01,
+    scale: "minor",
+    hatMode: "swing",
+    noiseType: "off",
+    noiseLevel: 0.0,
+    reverb: 0.56,
+    oscLevels: [0.9, 0.84, 0.54, 0.46],
+    musicEnabled: true,
+    kickEnabled: true,
+    noiseEnabled: false,
+    sound: {
+      kickBusGain: 0.31,
+      hatBusGain: 0.34,
+      kickMidFreq: 245,
+      kickMidQ: 2.9,
+      kickMidGain: -6,
+      kickBodyPeak: 0.52,
+      kickBodySustain: 0.26,
+      kickBodySustainTime: 0.074,
+      kickBodyReleaseTime: 0.32,
+      kickBodyStopTime: 0.38,
+    },
+  },
+  warmBloom: {
+    label: "Warm Bloom",
+    base: 62,
+    bpm: 68,
+    odd: 0.03,
+    scale: "major",
+    hatMode: "fibonacci",
+    noiseType: "brown",
+    noiseLevel: 0.05,
+    reverb: 0.78,
+    oscLevels: [0.96, 0.86, 0.58, 0.50],
+    musicEnabled: true,
+    kickEnabled: true,
+    noiseEnabled: true,
+    sound: {
+      kickBusGain: 0.32,
+      hatBusGain: 0.36,
+      kickHPFreq: 34,
+      kickMidFreq: 235,
+      kickMidQ: 2.1,
+      kickMidGain: -5,
+      kickBodyReleaseTime: 0.42,
+      kickBodyStopTime: 0.48,
+      kickClickPeak: 0.02,
+      kickClickHold: 0.009,
+    },
+  },
+  auroraMist: {
+    label: "Aurora Mist",
+    base: 70,
+    bpm: 60,
+    odd: 0.02,
+    scale: "major",
+    hatMode: "euclid5",
+    noiseType: "brown",
+    noiseLevel: 0.07,
+    reverb: 0.88,
+    oscLevels: [0.86, 0.76, 0.5, 0.44],
+    musicEnabled: true,
+    kickEnabled: true,
+    noiseEnabled: true,
+    sound: {
+      kickBusGain: 0.28,
+      hatBusGain: 0.32,
+      kickHPFreq: 42,
+      kickMidFreq: 250,
+      kickMidQ: 2.3,
+      kickMidGain: -6,
+      kickLPFreq: 132,
+      kickBodyPeak: 0.48,
+      kickBodySustain: 0.24,
+      kickBodySustainTime: 0.07,
+      kickBodyReleaseTime: 0.30,
+      kickBodyStopTime: 0.36,
+      kickClickPeak: 0.018,
+      kickClickHold: 0.008,
+    },
+  },
+};
+
 let SCALE_MODE = "major";
 let HAT_MODE = "fibonacci";
+let MOOD_PRESET = "custom";
 const HAT_PATTERN_KEYS = Object.keys(HAT_PATTERNS);
 let autoHatIndex = Math.max(0, HAT_PATTERN_KEYS.indexOf(HAT_MODE));
 let DEG = buildDegrees(SCALE_MODE);
@@ -263,6 +399,7 @@ let BPM = 72;
 let ODD_SL = 0.03;
 let NOISE_TYPE = "brown";
 let NOISE_LVL = 0.05;
+let SOUND_SETTINGS = { ...DEFAULT_SOUND_SETTINGS };
 const OSC_LVLS = [1.00, 1.00, 0.65, 0.65];
 const SAW_LEGATO_VOICE_INDEX = 3;
 const SAW_MONO_GLIDE_SECONDS = 0.095;
@@ -283,6 +420,7 @@ let noiseNode = null;
 let melodyHP = null;
 let melodyLP = null;
 let kickHP = null;
+let kickMidDip = null;
 let kickLP = null;
 let dGain = null;
 let rGain = null;
@@ -298,6 +436,7 @@ let tid = null;
 let globalStep = 0;
 let nextStepTime = 0;
 const SETTINGS_KEY = "ratioEngineSettingsV1";
+let persistSuppressed = false;
 
 const vcur = [{}, {}, {}, {}];
 const voiceState = Array.from({ length: 4 }, () => ({
@@ -701,7 +840,177 @@ function syncToggleButtons() {
   }
 }
 
-function setNoiseEnabled(enabled) {
+function setControlValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) {
+    return;
+  }
+  el.value = `${value}`;
+}
+
+function setControlLabel(id, text) {
+  const el = document.getElementById(id);
+  if (!el) {
+    return;
+  }
+  el.textContent = text;
+}
+
+function sanitizeSoundSettings(source) {
+  const next = { ...DEFAULT_SOUND_SETTINGS };
+  if (!source || typeof source !== "object") {
+    return next;
+  }
+  for (const key of Object.keys(next)) {
+    const value = source[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function applySoundSettingsToEngine() {
+  if (kickBus) {
+    kickBus.gain.value = SOUND_SETTINGS.kickBusGain;
+  }
+  if (hatBus) {
+    hatBus.gain.value = SOUND_SETTINGS.hatBusGain;
+  }
+  if (kickHP) {
+    kickHP.frequency.value = SOUND_SETTINGS.kickHPFreq;
+    kickHP.Q.value = SOUND_SETTINGS.kickHPQ;
+  }
+  if (kickMidDip) {
+    kickMidDip.frequency.value = SOUND_SETTINGS.kickMidFreq;
+    kickMidDip.Q.value = SOUND_SETTINGS.kickMidQ;
+    kickMidDip.gain.value = SOUND_SETTINGS.kickMidGain;
+  }
+  if (kickLP) {
+    kickLP.frequency.value = SOUND_SETTINGS.kickLPFreq;
+    kickLP.Q.value = SOUND_SETTINGS.kickLPQ;
+  }
+}
+
+function syncMoodPresetControl() {
+  const moodCtrl = document.getElementById("moodPresetCtrl");
+  const moodVal = document.getElementById("moodPresetVal");
+  if (moodCtrl) {
+    moodCtrl.value = MOOD_PRESET;
+  }
+  if (moodVal) {
+    moodVal.textContent = MOOD_PRESETS[MOOD_PRESET]?.label || MOOD_PRESETS.custom.label;
+  }
+}
+
+function markMoodPresetCustom() {
+  if (MOOD_PRESET === "custom") {
+    return;
+  }
+  MOOD_PRESET = "custom";
+  syncMoodPresetControl();
+}
+
+function applyMoodPreset(presetKey) {
+  const preset = MOOD_PRESETS[presetKey];
+  if (!preset || presetKey === "custom") {
+    MOOD_PRESET = "custom";
+    syncMoodPresetControl();
+    persistSettings();
+    return;
+  }
+
+  const prevSuppress = persistSuppressed;
+  persistSuppressed = true;
+  try {
+    SOUND_SETTINGS = sanitizeSoundSettings({ ...DEFAULT_SOUND_SETTINGS, ...(preset.sound || {}) });
+
+    if (typeof preset.base === "number") {
+      BASE = Math.max(55, Math.min(220, preset.base));
+      setControlValue("baseCtrl", BASE);
+      setControlLabel("baseVal", `${BASE} Hz`);
+    }
+    if (typeof preset.bpm === "number") {
+      BPM = Math.max(40, Math.min(140, preset.bpm));
+      setControlValue("bpmCtrl", BPM);
+      setControlLabel("bpmVal", `${BPM} BPM`);
+    }
+    if (typeof preset.odd === "number") {
+      ODD_SL = Math.max(0, Math.min(0.6, preset.odd));
+      const oddPct = Math.round(ODD_SL * 100);
+      setControlValue("oddCtrl", oddPct);
+      setControlLabel("oddVal", `${oddPct}%`);
+    }
+    if (preset.scale === "major" || preset.scale === "minor") {
+      setControlValue("scaleCtrl", preset.scale);
+      applyScale(preset.scale);
+    }
+    if (preset.hatMode && HAT_PATTERNS[preset.hatMode]) {
+      setControlValue("hatCtrl", preset.hatMode);
+      applyHatPattern(preset.hatMode);
+    }
+    if (preset.noiseType && ["off", "white", "pink", "brown"].includes(preset.noiseType)) {
+      NOISE_TYPE = preset.noiseType;
+      const noiseCtrl = document.getElementById("noiseCtrl");
+      if (noiseCtrl) {
+        noiseCtrl.value = NOISE_TYPE;
+        setControlLabel("noiseVal", noiseCtrl.options[noiseCtrl.selectedIndex].text);
+      }
+    }
+    if (typeof preset.noiseLevel === "number") {
+      NOISE_LVL = Math.max(0, Math.min(1, preset.noiseLevel));
+      const noisePct = Math.round(NOISE_LVL * 100);
+      setControlValue("noiseLvlCtrl", noisePct);
+      setControlLabel("noiseLvlVal", `${noisePct}%`);
+    }
+    if (Array.isArray(preset.oscLevels)) {
+      for (let i = 0; i < OSC_LVLS.length; i++) {
+        const value = preset.oscLevels[i];
+        if (typeof value === "number") {
+          OSC_LVLS[i] = Math.max(0, Math.min(1, value));
+        }
+      }
+      bindOscLevelControls();
+    }
+    if (typeof preset.reverb === "number") {
+      const reverbValue = Math.max(0, Math.min(1, preset.reverb));
+      setControlValue("revCtrl", Math.round(reverbValue * 100));
+      setControlLabel("revVal", `${Math.round(reverbValue * 100)}%`);
+      if (rGain) {
+        rGain.gain.value = reverbValue;
+      }
+      if (dGain) {
+        dGain.gain.value = Math.max(0.24, 0.78 - reverbValue * 0.32);
+      }
+    }
+
+    applySoundSettingsToEngine();
+
+    if (typeof preset.musicEnabled === "boolean") {
+      setMusicEnabled(preset.musicEnabled, { markCustom: false });
+    }
+    if (typeof preset.kickEnabled === "boolean") {
+      setKickEnabled(preset.kickEnabled, { markCustom: false });
+    }
+    if (typeof preset.noiseEnabled === "boolean") {
+      setNoiseEnabled(preset.noiseEnabled, { markCustom: false });
+    } else {
+      updateNoise();
+    }
+
+    MOOD_PRESET = presetKey;
+  } finally {
+    persistSuppressed = prevSuppress;
+  }
+  syncMoodPresetControl();
+  persistSettings();
+}
+
+function setNoiseEnabled(enabled, options = {}) {
+  const { markCustom = true } = options;
+  if (markCustom) {
+    markMoodPresetCustom();
+  }
   noiseEnabled = enabled;
   const noiseSelect = document.getElementById("noiseCtrl");
   if (noiseSelect) {
@@ -731,7 +1040,11 @@ function setNoiseEnabled(enabled) {
   persistSettings();
 }
 
-function setMusicEnabled(enabled) {
+function setMusicEnabled(enabled, options = {}) {
+  const { markCustom = true } = options;
+  if (markCustom) {
+    markMoodPresetCustom();
+  }
   musicMuted = !enabled;
   if (musicMuted) {
     stopSawLegatoVoice(actx ? actx.currentTime : 0);
@@ -741,7 +1054,11 @@ function setMusicEnabled(enabled) {
   persistSettings();
 }
 
-function setKickEnabled(enabled) {
+function setKickEnabled(enabled, options = {}) {
+  const { markCustom = true } = options;
+  if (markCustom) {
+    markMoodPresetCustom();
+  }
   kickMuted = !enabled;
   applyMusicMuteState();
   syncToggleButtons();
@@ -755,6 +1072,7 @@ function applyControlTooltips() {
     ["kickToggleBtn", "Mute or unmute the kick (Shortcut: K)"],
     ["noiseToggleBtn", "Toggle noise layer on/off (Shortcut: N)"],
     ["baseCtrl", "Base frequency in Hz"],
+    ["moodPresetCtrl", "Mood template preset"],
     ["scaleCtrl", "Harmony scale mode"],
     ["hatCtrl", "Hi-hat pattern (auto cycles every 8 bars)"],
     ["bpmCtrl", "Tempo in BPM"],
@@ -784,15 +1102,22 @@ function readSettings() {
 
 function persistSettings() {
   try {
+    if (persistSuppressed) {
+      return;
+    }
     const payload = {
       base: BASE,
       bpm: BPM,
       odd: ODD_SL,
+      moodPreset: MOOD_PRESET,
       scale: SCALE_MODE,
       hatMode: HAT_MODE,
       noiseType: NOISE_TYPE,
       noiseLevel: NOISE_LVL,
-      reverb: rGain ? rGain.gain.value : 0.8,
+      reverb: rGain
+        ? rGain.gain.value
+        : Math.max(0, Math.min(1, +(document.getElementById("revCtrl")?.value || 80) / 100)),
+      soundSettings: { ...SOUND_SETTINGS },
       oscLevels: OSC_LVLS.slice(),
       musicEnabled: !musicMuted,
       kickEnabled: !kickMuted,
@@ -807,112 +1132,140 @@ function persistSettings() {
 function applyStoredSettings() {
   const saved = readSettings();
   if (!saved) {
+    SOUND_SETTINGS = sanitizeSoundSettings(DEFAULT_SOUND_SETTINGS);
+    applySoundSettingsToEngine();
+    syncMoodPresetControl();
     syncToggleButtons();
     return;
   }
 
-  if (typeof saved.base === "number") {
-    BASE = Math.max(55, Math.min(220, saved.base));
-  }
-  const baseCtrl = document.getElementById("baseCtrl");
-  const baseVal = document.getElementById("baseVal");
-  if (baseCtrl && baseVal) {
-    baseCtrl.value = `${BASE}`;
-    baseVal.textContent = `${BASE} Hz`;
-  }
-
-  if (typeof saved.bpm === "number") {
-    BPM = Math.max(40, Math.min(140, saved.bpm));
-  }
-  const bpmCtrl = document.getElementById("bpmCtrl");
-  const bpmVal = document.getElementById("bpmVal");
-  if (bpmCtrl && bpmVal) {
-    bpmCtrl.value = `${BPM}`;
-    bpmVal.textContent = `${BPM} BPM`;
-  }
-
-  if (typeof saved.odd === "number") {
-    ODD_SL = Math.max(0, Math.min(0.6, saved.odd));
-  }
-  const oddCtrl = document.getElementById("oddCtrl");
-  const oddVal = document.getElementById("oddVal");
-  if (oddCtrl && oddVal) {
-    oddCtrl.value = `${Math.round(ODD_SL * 100)}`;
-    oddVal.textContent = `${Math.round(ODD_SL * 100)}%`;
-  }
-
-  if (saved.scale === "major" || saved.scale === "minor") {
-    const scaleCtrl = document.getElementById("scaleCtrl");
-    if (scaleCtrl) {
-      scaleCtrl.value = saved.scale;
+  persistSuppressed = true;
+  try {
+    if (saved.moodPreset && MOOD_PRESETS[saved.moodPreset]) {
+      MOOD_PRESET = saved.moodPreset;
+    } else {
+      MOOD_PRESET = "custom";
     }
-    applyScale(saved.scale);
-  }
 
-  if (saved.hatMode && HAT_PATTERNS[saved.hatMode]) {
-    const hatCtrl = document.getElementById("hatCtrl");
-    if (hatCtrl) {
-      hatCtrl.value = saved.hatMode;
+    if (typeof saved.base === "number") {
+      BASE = Math.max(55, Math.min(220, saved.base));
     }
-    applyHatPattern(saved.hatMode);
-  }
+    const baseCtrl = document.getElementById("baseCtrl");
+    const baseVal = document.getElementById("baseVal");
+    if (baseCtrl && baseVal) {
+      baseCtrl.value = `${BASE}`;
+      baseVal.textContent = `${BASE} Hz`;
+    }
 
-  if (saved.noiseType && ["off", "white", "pink", "brown"].includes(saved.noiseType)) {
-    NOISE_TYPE = saved.noiseType;
-  }
-  const noiseCtrl = document.getElementById("noiseCtrl");
-  const noiseVal = document.getElementById("noiseVal");
-  if (noiseCtrl && noiseVal) {
-    noiseCtrl.value = NOISE_TYPE;
-    noiseVal.textContent = noiseCtrl.options[noiseCtrl.selectedIndex].text;
-  }
+    if (typeof saved.bpm === "number") {
+      BPM = Math.max(40, Math.min(140, saved.bpm));
+    }
+    const bpmCtrl = document.getElementById("bpmCtrl");
+    const bpmVal = document.getElementById("bpmVal");
+    if (bpmCtrl && bpmVal) {
+      bpmCtrl.value = `${BPM}`;
+      bpmVal.textContent = `${BPM} BPM`;
+    }
 
-  if (typeof saved.noiseLevel === "number") {
-    NOISE_LVL = Math.max(0, Math.min(1, saved.noiseLevel));
-  }
-  const noiseLvlCtrl = document.getElementById("noiseLvlCtrl");
-  const noiseLvlVal = document.getElementById("noiseLvlVal");
-  if (noiseLvlCtrl && noiseLvlVal) {
-    noiseLvlCtrl.value = `${Math.round(NOISE_LVL * 100)}`;
-    noiseLvlVal.textContent = `${Math.round(NOISE_LVL * 100)}%`;
-  }
+    if (typeof saved.odd === "number") {
+      ODD_SL = Math.max(0, Math.min(0.6, saved.odd));
+    }
+    const oddCtrl = document.getElementById("oddCtrl");
+    const oddVal = document.getElementById("oddVal");
+    if (oddCtrl && oddVal) {
+      oddCtrl.value = `${Math.round(ODD_SL * 100)}`;
+      oddVal.textContent = `${Math.round(ODD_SL * 100)}%`;
+    }
 
-  if (Array.isArray(saved.oscLevels)) {
-    for (let i = 0; i < OSC_LVLS.length; i++) {
-      const v = saved.oscLevels[i];
-      if (typeof v === "number") {
-        OSC_LVLS[i] = Math.max(0, Math.min(1, v));
+    if (saved.scale === "major" || saved.scale === "minor") {
+      const scaleCtrl = document.getElementById("scaleCtrl");
+      if (scaleCtrl) {
+        scaleCtrl.value = saved.scale;
+      }
+      applyScale(saved.scale);
+    }
+
+    if (saved.hatMode && HAT_PATTERNS[saved.hatMode]) {
+      const hatCtrl = document.getElementById("hatCtrl");
+      if (hatCtrl) {
+        hatCtrl.value = saved.hatMode;
+      }
+      applyHatPattern(saved.hatMode);
+    }
+
+    if (saved.noiseType && ["off", "white", "pink", "brown"].includes(saved.noiseType)) {
+      NOISE_TYPE = saved.noiseType;
+    }
+    const noiseCtrl = document.getElementById("noiseCtrl");
+    const noiseVal = document.getElementById("noiseVal");
+    if (noiseCtrl && noiseVal) {
+      noiseCtrl.value = NOISE_TYPE;
+      noiseVal.textContent = noiseCtrl.options[noiseCtrl.selectedIndex].text;
+    }
+
+    if (typeof saved.noiseLevel === "number") {
+      NOISE_LVL = Math.max(0, Math.min(1, saved.noiseLevel));
+    }
+    const noiseLvlCtrl = document.getElementById("noiseLvlCtrl");
+    const noiseLvlVal = document.getElementById("noiseLvlVal");
+    if (noiseLvlCtrl && noiseLvlVal) {
+      noiseLvlCtrl.value = `${Math.round(NOISE_LVL * 100)}`;
+      noiseLvlVal.textContent = `${Math.round(NOISE_LVL * 100)}%`;
+    }
+
+    if (saved.soundSettings) {
+      SOUND_SETTINGS = sanitizeSoundSettings(saved.soundSettings);
+    } else if (MOOD_PRESETS[MOOD_PRESET] && MOOD_PRESET !== "custom") {
+      SOUND_SETTINGS = sanitizeSoundSettings({
+        ...DEFAULT_SOUND_SETTINGS,
+        ...(MOOD_PRESETS[MOOD_PRESET].sound || {}),
+      });
+    } else {
+      SOUND_SETTINGS = sanitizeSoundSettings(DEFAULT_SOUND_SETTINGS);
+    }
+
+    if (Array.isArray(saved.oscLevels)) {
+      for (let i = 0; i < OSC_LVLS.length; i++) {
+        const v = saved.oscLevels[i];
+        if (typeof v === "number") {
+          OSC_LVLS[i] = Math.max(0, Math.min(1, v));
+        }
       }
     }
-  }
-  bindOscLevelControls();
+    bindOscLevelControls();
 
-  const reverbValue = typeof saved.reverb === "number" ? Math.max(0, Math.min(1, saved.reverb)) : 0.8;
-  const revCtrl = document.getElementById("revCtrl");
-  const revVal = document.getElementById("revVal");
-  if (revCtrl && revVal) {
-    revCtrl.value = `${Math.round(reverbValue * 100)}`;
-    revVal.textContent = `${Math.round(reverbValue * 100)}%`;
-  }
-  if (rGain) {
-    rGain.gain.value = reverbValue;
-  }
-  if (dGain) {
-    dGain.gain.value = Math.max(0.24, 0.78 - reverbValue * 0.32);
-  }
+    const reverbValue = typeof saved.reverb === "number" ? Math.max(0, Math.min(1, saved.reverb)) : 0.8;
+    const revCtrl = document.getElementById("revCtrl");
+    const revVal = document.getElementById("revVal");
+    if (revCtrl && revVal) {
+      revCtrl.value = `${Math.round(reverbValue * 100)}`;
+      revVal.textContent = `${Math.round(reverbValue * 100)}%`;
+    }
+    if (rGain) {
+      rGain.gain.value = reverbValue;
+    }
+    if (dGain) {
+      dGain.gain.value = Math.max(0.24, 0.78 - reverbValue * 0.32);
+    }
 
-  if (typeof saved.musicEnabled === "boolean") {
-    setMusicEnabled(saved.musicEnabled);
-  } else {
-    syncToggleButtons();
-  }
-  if (typeof saved.kickEnabled === "boolean") {
-    setKickEnabled(saved.kickEnabled);
-  } else {
-    syncToggleButtons();
-  }
-  if (typeof saved.noiseEnabled === "boolean") {
-    setNoiseEnabled(saved.noiseEnabled);
+    applySoundSettingsToEngine();
+    syncMoodPresetControl();
+
+    if (typeof saved.musicEnabled === "boolean") {
+      setMusicEnabled(saved.musicEnabled, { markCustom: false });
+    } else {
+      syncToggleButtons();
+    }
+    if (typeof saved.kickEnabled === "boolean") {
+      setKickEnabled(saved.kickEnabled, { markCustom: false });
+    } else {
+      syncToggleButtons();
+    }
+    if (typeof saved.noiseEnabled === "boolean") {
+      setNoiseEnabled(saved.noiseEnabled, { markCustom: false });
+    }
+  } finally {
+    persistSuppressed = false;
   }
 }
 
@@ -932,9 +1285,9 @@ function initAudio() {
   mGain = actx.createGain();
   mGain.gain.value = 0.58;
   kickBus = actx.createGain();
-  kickBus.gain.value = 0.41;
+  kickBus.gain.value = SOUND_SETTINGS.kickBusGain;
   hatBus = actx.createGain();
-  hatBus.gain.value = 0.62;
+  hatBus.gain.value = SOUND_SETTINGS.hatBusGain;
   noiseBus = actx.createGain();
   noiseBus.gain.value = 0;
   noiseNode = null;
@@ -951,13 +1304,19 @@ function initAudio() {
 
   kickHP = actx.createBiquadFilter();
   kickHP.type = "highpass";
-  kickHP.frequency.value = 24;
-  kickHP.Q.value = 0.7;
+  kickHP.frequency.value = SOUND_SETTINGS.kickHPFreq;
+  kickHP.Q.value = SOUND_SETTINGS.kickHPQ;
+
+  kickMidDip = actx.createBiquadFilter();
+  kickMidDip.type = "peaking";
+  kickMidDip.frequency.value = SOUND_SETTINGS.kickMidFreq;
+  kickMidDip.Q.value = SOUND_SETTINGS.kickMidQ;
+  kickMidDip.gain.value = SOUND_SETTINGS.kickMidGain;
 
   kickLP = actx.createBiquadFilter();
   kickLP.type = "lowpass";
-  kickLP.frequency.value = 145;
-  kickLP.Q.value = 0.8;
+  kickLP.frequency.value = SOUND_SETTINGS.kickLPFreq;
+  kickLP.Q.value = SOUND_SETTINGS.kickLPQ;
 
   anlz = actx.createAnalyser();
   anlz.fftSize = 2048;
@@ -1001,7 +1360,8 @@ function initAudio() {
   melodyGate.connect(rGain);
 
   kickBus.connect(kickHP);
-  kickHP.connect(kickLP);
+  kickHP.connect(kickMidDip);
+  kickMidDip.connect(kickLP);
   kickLP.connect(kickGate);
   kickGate.connect(dGain);
   kickGate.connect(kickAnalyser);
@@ -1021,7 +1381,7 @@ function initAudio() {
 
   updateNoise();
   applyMusicMuteState();
-  setNoiseEnabled(noiseEnabled);
+  setNoiseEnabled(noiseEnabled, { markCustom: false });
   syncToggleButtons();
 }
 
@@ -1337,13 +1697,16 @@ function playKick(t, accent) {
   body.frequency.setValueAtTime(118, t);
   body.frequency.exponentialRampToValueAtTime(42, t + 0.18);
   bodyEnv.gain.setValueAtTime(0.0001, t);
-  bodyEnv.gain.exponentialRampToValueAtTime(0.66 * accent, t + 0.022);
-  bodyEnv.gain.exponentialRampToValueAtTime(0.52 * accent, t + 0.11);
-  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.58);
+  bodyEnv.gain.exponentialRampToValueAtTime(SOUND_SETTINGS.kickBodyPeak * accent, t + 0.022);
+  bodyEnv.gain.exponentialRampToValueAtTime(
+    SOUND_SETTINGS.kickBodySustain * accent,
+    t + SOUND_SETTINGS.kickBodySustainTime
+  );
+  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, t + SOUND_SETTINGS.kickBodyReleaseTime);
   body.connect(bodyEnv);
   bodyEnv.connect(kickBus);
   body.start(t);
-  body.stop(t + 0.66);
+  body.stop(t + SOUND_SETTINGS.kickBodyStopTime);
 
   const click = actx.createOscillator();
   const clickEnv = actx.createGain();
@@ -1351,8 +1714,8 @@ function playKick(t, accent) {
   click.frequency.setValueAtTime(900, t);
   click.frequency.exponentialRampToValueAtTime(280, t + 0.014);
   clickEnv.gain.setValueAtTime(0.0001, t);
-  clickEnv.gain.exponentialRampToValueAtTime(0.032 * accent, t + 0.0032);
-  clickEnv.gain.setValueAtTime(0.016 * accent, t + 0.008);
+  clickEnv.gain.exponentialRampToValueAtTime(SOUND_SETTINGS.kickClickPeak * accent, t + 0.0032);
+  clickEnv.gain.setValueAtTime(SOUND_SETTINGS.kickClickHold * accent, t + 0.008);
   clickEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.036);
   click.connect(clickEnv);
   clickEnv.connect(kickBus);
@@ -1699,6 +2062,7 @@ function bindOscLevelControls() {
     val.textContent = `${pct}%`;
     ctrl.title = `Oscillator ${i + 1} level`;
     ctrl.oninput = (e) => {
+      markMoodPresetCustom();
       const nextPct = +e.target.value;
       OSC_LVLS[i] = nextPct / 100;
       val.textContent = `${nextPct}%`;
@@ -1772,34 +2136,40 @@ document.getElementById("playBtn").addEventListener("click", () => {
 });
 
 document.getElementById("baseCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
   BASE = +e.target.value;
   document.getElementById("baseVal").textContent = `${BASE} Hz`;
   persistSettings();
 });
 
 document.getElementById("scaleCtrl").addEventListener("change", (e) => {
+  markMoodPresetCustom();
   applyScale(e.target.value);
   persistSettings();
 });
 
 document.getElementById("hatCtrl").addEventListener("change", (e) => {
+  markMoodPresetCustom();
   applyHatPattern(e.target.value);
   persistSettings();
 });
 
 document.getElementById("bpmCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
   BPM = +e.target.value;
   document.getElementById("bpmVal").textContent = `${BPM} BPM`;
   persistSettings();
 });
 
 document.getElementById("oddCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
   ODD_SL = +e.target.value / 100;
   document.getElementById("oddVal").textContent = `${e.target.value}%`;
   persistSettings();
 });
 
 document.getElementById("revCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
   const rv = +e.target.value / 100;
   if (rGain) {
     rGain.gain.value = rv;
@@ -1811,7 +2181,12 @@ document.getElementById("revCtrl").addEventListener("input", (e) => {
   persistSettings();
 });
 
+document.getElementById("moodPresetCtrl").addEventListener("change", (e) => {
+  applyMoodPreset(e.target.value);
+});
+
 document.getElementById("noiseCtrl").addEventListener("change", (e) => {
+  markMoodPresetCustom();
   NOISE_TYPE = e.target.value;
   document.getElementById("noiseVal").textContent = e.target.options[e.target.selectedIndex].text;
   updateNoise();
@@ -1819,6 +2194,7 @@ document.getElementById("noiseCtrl").addEventListener("change", (e) => {
 });
 
 document.getElementById("noiseLvlCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
   NOISE_LVL = +e.target.value / 100;
   if (noiseBus) {
     noiseBus.gain.value = !noiseEnabled || NOISE_TYPE === "off" || !playing ? 0 : NOISE_LVL;
@@ -1860,6 +2236,7 @@ document.addEventListener("keydown", (e) => {
 window.addEventListener("resize", rsz);
 buildCards();
 applyControlTooltips();
+syncMoodPresetControl();
 applyScale(SCALE_MODE);
 applyHatPattern(HAT_MODE);
 applyStoredSettings();
