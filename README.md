@@ -78,7 +78,7 @@ pip install numpy scipy
 python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output ratio_rhythm_music.wav
 ```
 
-## Next session TODO
+## TODO
 
 - Improve typography
 - Adjust colors to match standard contrast while keeping aesthetics
