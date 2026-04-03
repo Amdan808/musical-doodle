@@ -11,6 +11,8 @@ body{
   min-height:100vh; padding:18px 18px 14px;
   display:flex; flex-direction:column; gap:12px;
 }
+body.focus-mode{gap:0;}
+body.focus-mode .hdr{margin-bottom:12px;}
 .hdr{
   display:flex; justify-content:space-between;
   align-items:flex-end; border-bottom:1px solid var(--bd);
@@ -167,6 +169,156 @@ body{
 .legend em{font-style:normal;color:var(--a);}
 .legend .odd{color:var(--red);}
 .legend .sum{color:var(--cya);}
+.focus-layout{
+  border:1px solid transparent;
+  background:var(--s1);
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin:-12px 0;
+  gap:0;
+  padding:0;
+  max-height:0;
+  opacity:0;
+  transform:translateY(-8px);
+  overflow:hidden;
+  pointer-events:none;
+  transition:max-height .45s ease,opacity .35s ease,transform .35s ease,padding .35s ease,margin .35s ease,border-color .35s ease;
+}
+.focus-col{
+  border:1px solid var(--bd);
+  background:var(--s2);
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:170px;
+}
+.focus-hd{
+  font-size:9px;
+  letter-spacing:.18em;
+  color:var(--ad);
+}
+.focus-row{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.focus-row-tight{
+  gap:8px;
+}
+.focus-btn{
+  font-family:'Rajdhani',sans-serif;
+  font-weight:700;
+  font-size:10px;
+  letter-spacing:.14em;
+  color:var(--tx);
+  background:transparent;
+  border:1px solid var(--bd);
+  padding:5px 8px;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+.focus-btn.on{
+  border-color:var(--a);
+  color:var(--a);
+}
+.focus-mini{
+  font-size:10px;
+  color:var(--a);
+  min-width:54px;
+}
+.focus-input-lbl{
+  font-size:9px;
+  color:var(--txd);
+  letter-spacing:.1em;
+}
+.focus-timer-display{
+  font-family:'Rajdhani',sans-serif;
+  font-size:36px;
+  line-height:1;
+  color:var(--a);
+  letter-spacing:.08em;
+}
+#focusTodoInput,
+#focusNotes{
+  width:100%;
+  font-family:'Share Tech Mono','Courier New',monospace;
+  font-size:11px;
+  color:var(--tx);
+  background:#040403;
+  border:1px solid var(--bd);
+  padding:6px 7px;
+}
+#focusTodoInput:focus,
+#focusNotes:focus{
+  outline:none;
+  border-color:var(--a);
+}
+#focusNotes{
+  min-height:116px;
+  resize:vertical;
+}
+.focus-todo-list{
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  overflow:auto;
+}
+.focus-todo-item{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:11px;
+  color:var(--tx);
+}
+.focus-todo-item.done .focus-todo-text{
+  color:var(--txd);
+  text-decoration:line-through;
+}
+.focus-todo-toggle{
+  width:14px;
+  height:14px;
+  accent-color:var(--a);
+}
+.focus-todo-text{
+  flex:1 1 auto;
+  word-break:break-word;
+}
+body.focus-mode .scope-wrap,
+body.focus-mode .scope-bank,
+body.focus-mode .grid,
+body.focus-mode .legend,
+body.focus-mode .ctrls,
+body.focus-mode footer{
+  max-height:0;
+  opacity:0;
+  transform:translateY(-10px);
+  overflow:hidden;
+  pointer-events:none;
+  margin:0;
+  border-width:0;
+  padding-top:0;
+  padding-bottom:0;
+}
+body.focus-mode .focus-layout{
+  border-color:var(--bd);
+  margin:0;
+  gap:12px;
+  padding:12px;
+  max-height:520px;
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+.scope-wrap,
+.scope-bank,
+.grid,
+.legend,
+.ctrls,
+footer{
+  transition:max-height .45s ease,opacity .32s ease,transform .32s ease,margin .32s ease,padding .32s ease,border-width .32s ease;
+}
 .ctrls{
   display:flex; gap:20px; align-items:center;
   flex-wrap:wrap; border-top:1px solid var(--bd);
@@ -201,6 +353,13 @@ body{
 .toggle-btn.off{
   border-color:#3a1f1a;
   color:var(--red);
+}
+.toggle-btn.focus{
+  border-color:var(--cya);
+  color:var(--cya);
+}
+.toggle-btn.focus.on{
+  background:rgba(32,136,152,.12);
 }
 .cl{display:flex;flex-direction:column;gap:3px;}
 .cl-lbl{font-size:9px;color:var(--txd);letter-spacing:.15em;}
@@ -257,6 +416,7 @@ footer{
   .grid{grid-template-columns:repeat(2,1fr);}
   .ctrls{gap:12px;}
   input[type=range]{width:60px;}
+  .focus-layout{grid-template-columns:1fr;}
 }
 @media (max-width:520px) {
   .hdr-main-btns{
@@ -267,4 +427,8 @@ footer{
   .scope-panel.rhythm,
   .scope-panel.rhythm-start,
   .scope-panel.rhythm-end{grid-column:1 / -1;}
+  .focus-row{
+    flex-wrap:wrap;
+    align-items:flex-start;
+  }
 }

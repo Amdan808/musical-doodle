@@ -17,10 +17,23 @@ Interactive math-inspired synthesis experiments in Web Audio + Python.
 - Master + 6 analysis scopes (4 harmony, kick, hi-hat)
 - Brown/white/pink noise with level and ON/OFF control
 - Music ON/OFF and Noise ON/OFF toggles
+- Focus Mode layout toggle with Pomodoro, quick todo, and quick notes
 - Mood Presets templates (Night Drive, Deep Focus, Warm Bloom, Aurora Mist)
-- Shortcut keys: `M` = music toggle, `K` = kick toggle, `N` = noise toggle
+- Shortcut keys: `M` = music toggle, `K` = kick toggle, `N` = noise toggle, `F` = focus mode
 - Auto hi-hat pattern switching every 8 bars
 - Persistent UI settings via `localStorage`
+
+## Focus Mode
+
+Use the `FOCUS ON/OFF` button in the header (or press `F`) to switch between the full synth workspace and a distraction-reduced focus layout.
+
+Focus Mode includes:
+
+- Pomodoro timer with start/pause/reset and adjustable session length (5-60 min)
+- Quick todo capture (`Enter` or `ADD`) with checkbox completion state
+- Quick notes panel for session scratch notes
+
+Focus mode state, timer state, todos, and notes are persisted to `localStorage`.
 
 ## Mood Presets
 

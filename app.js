@@ -437,6 +437,12 @@ let globalStep = 0;
 let nextStepTime = 0;
 const SETTINGS_KEY = "ratioEngineSettingsV1";
 let persistSuppressed = false;
+let focusModeEnabled = false;
+let focusTimerMinutes = 25;
+let focusTimerRunning = false;
+let focusTimerEndsAtMs = 0;
+let focusTimerIntervalId = null;
+let focusTodoItems = [];
 
 const vcur = [{}, {}, {}, {}];
 const voiceState = Array.from({ length: 4 }, () => ({
@@ -1065,12 +1071,230 @@ function setKickEnabled(enabled, options = {}) {
   persistSettings();
 }
 
+function syncFocusModeButton() {
+  const focusBtn = document.getElementById("focusModeBtn");
+  if (!focusBtn) {
+    return;
+  }
+  focusBtn.textContent = focusModeEnabled ? "FOCUS ON" : "FOCUS OFF";
+  focusBtn.className = `toggle-btn focus ${focusModeEnabled ? "on" : "off"}`;
+  focusBtn.setAttribute("aria-pressed", focusModeEnabled ? "true" : "false");
+}
+
+function setFocusMode(enabled, options = {}) {
+  const { persist = true } = options;
+  focusModeEnabled = !!enabled;
+  document.body.classList.toggle("focus-mode", focusModeEnabled);
+  const focusLayout = document.getElementById("focusLayout");
+  if (focusLayout) {
+    focusLayout.setAttribute("aria-hidden", focusModeEnabled ? "false" : "true");
+  }
+  syncFocusModeButton();
+  rsz();
+  if (persist) {
+    persistSettings();
+  }
+}
+
+function formatFocusDuration(totalSeconds) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function renderFocusTimer() {
+  const display = document.getElementById("focusTimerDisplay");
+  const startBtn = document.getElementById("focusTimerStartBtn");
+  const minutesVal = document.getElementById("focusTimerMinutesVal");
+  if (minutesVal) {
+    minutesVal.textContent = `${focusTimerMinutes} MIN`;
+  }
+  if (startBtn) {
+    startBtn.textContent = focusTimerRunning ? "PAUSE" : "START";
+    startBtn.className = `focus-btn ${focusTimerRunning ? "on" : ""}`.trim();
+  }
+  if (!display) {
+    return;
+  }
+  if (!focusTimerRunning) {
+    display.textContent = formatFocusDuration(focusTimerMinutes * 60);
+    return;
+  }
+  const remainingMs = Math.max(0, focusTimerEndsAtMs - Date.now());
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  display.textContent = formatFocusDuration(remainingSeconds);
+  if (remainingSeconds <= 0) {
+    focusTimerRunning = false;
+    focusTimerEndsAtMs = 0;
+    if (focusTimerIntervalId) {
+      clearInterval(focusTimerIntervalId);
+      focusTimerIntervalId = null;
+    }
+    renderFocusTimer();
+    persistSettings();
+  }
+}
+
+function startFocusTimer() {
+  focusTimerRunning = true;
+  focusTimerEndsAtMs = Date.now() + focusTimerMinutes * 60 * 1000;
+  if (focusTimerIntervalId) {
+    clearInterval(focusTimerIntervalId);
+  }
+  focusTimerIntervalId = setInterval(renderFocusTimer, 250);
+  renderFocusTimer();
+  persistSettings();
+}
+
+function pauseFocusTimer() {
+  if (!focusTimerRunning) {
+    return;
+  }
+  const remainingMs = Math.max(0, focusTimerEndsAtMs - Date.now());
+  focusTimerMinutes = Math.max(5, Math.min(60, Math.ceil(remainingMs / 60000)));
+  focusTimerRunning = false;
+  focusTimerEndsAtMs = 0;
+  if (focusTimerIntervalId) {
+    clearInterval(focusTimerIntervalId);
+    focusTimerIntervalId = null;
+  }
+  const minutesCtrl = document.getElementById("focusTimerMinutesCtrl");
+  if (minutesCtrl) {
+    minutesCtrl.value = `${focusTimerMinutes}`;
+  }
+  renderFocusTimer();
+  persistSettings();
+}
+
+function resetFocusTimer() {
+  focusTimerRunning = false;
+  focusTimerEndsAtMs = 0;
+  if (focusTimerIntervalId) {
+    clearInterval(focusTimerIntervalId);
+    focusTimerIntervalId = null;
+  }
+  const minutesCtrl = document.getElementById("focusTimerMinutesCtrl");
+  if (minutesCtrl) {
+    minutesCtrl.value = `${focusTimerMinutes}`;
+  }
+  renderFocusTimer();
+  persistSettings();
+}
+
+function renderFocusTodoList() {
+  const list = document.getElementById("focusTodoList");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  for (let i = 0; i < focusTodoItems.length; i++) {
+    const item = focusTodoItems[i];
+    const li = document.createElement("li");
+    li.className = `focus-todo-item${item.done ? " done" : ""}`;
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.className = "focus-todo-toggle";
+    toggle.checked = !!item.done;
+    toggle.addEventListener("change", () => {
+      focusTodoItems[i].done = toggle.checked;
+      renderFocusTodoList();
+      persistSettings();
+    });
+    const text = document.createElement("span");
+    text.className = "focus-todo-text";
+    text.textContent = item.text;
+    li.appendChild(toggle);
+    li.appendChild(text);
+    list.appendChild(li);
+  }
+}
+
+function addFocusTodo(raw) {
+  const text = `${raw || ""}`.trim();
+  if (!text) {
+    return;
+  }
+  focusTodoItems.unshift({ text: text.slice(0, 120), done: false });
+  if (focusTodoItems.length > 20) {
+    focusTodoItems = focusTodoItems.slice(0, 20);
+  }
+  renderFocusTodoList();
+  persistSettings();
+}
+
+function bindFocusModeControls() {
+  const focusBtn = document.getElementById("focusModeBtn");
+  if (focusBtn) {
+    focusBtn.addEventListener("click", () => setFocusMode(!focusModeEnabled));
+  }
+
+  const timerStartBtn = document.getElementById("focusTimerStartBtn");
+  if (timerStartBtn) {
+    timerStartBtn.addEventListener("click", () => {
+      if (focusTimerRunning) {
+        pauseFocusTimer();
+      } else {
+        startFocusTimer();
+      }
+    });
+  }
+
+  const timerResetBtn = document.getElementById("focusTimerResetBtn");
+  if (timerResetBtn) {
+    timerResetBtn.addEventListener("click", resetFocusTimer);
+  }
+
+  const timerMinutesCtrl = document.getElementById("focusTimerMinutesCtrl");
+  if (timerMinutesCtrl) {
+    timerMinutesCtrl.addEventListener("input", (e) => {
+      focusTimerMinutes = Math.max(5, Math.min(60, +e.target.value || 25));
+      if (focusTimerRunning) {
+        startFocusTimer();
+      } else {
+        renderFocusTimer();
+      }
+      persistSettings();
+    });
+  }
+
+  const todoInput = document.getElementById("focusTodoInput");
+  const todoAddBtn = document.getElementById("focusTodoAddBtn");
+  const submitTodo = () => {
+    if (!todoInput) {
+      return;
+    }
+    addFocusTodo(todoInput.value);
+    todoInput.value = "";
+  };
+  if (todoAddBtn) {
+    todoAddBtn.addEventListener("click", submitTodo);
+  }
+  if (todoInput) {
+    todoInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitTodo();
+      }
+    });
+  }
+
+  const notesEl = document.getElementById("focusNotes");
+  if (notesEl) {
+    notesEl.addEventListener("input", () => persistSettings());
+  }
+
+  syncFocusModeButton();
+  renderFocusTodoList();
+  renderFocusTimer();
+}
+
 function applyControlTooltips() {
   const tips = [
     ["playBtn", "Start or stop playback"],
     ["musicToggleBtn", "Toggle music layer on/off"],
     ["kickToggleBtn", "Mute or unmute the kick (Shortcut: K)"],
     ["noiseToggleBtn", "Toggle noise layer on/off (Shortcut: N)"],
+    ["focusModeBtn", "Toggle focus mode layout (Shortcut: F)"],
     ["baseCtrl", "Base frequency in Hz"],
     ["moodPresetCtrl", "Mood template preset"],
     ["scaleCtrl", "Harmony scale mode"],
@@ -1122,6 +1346,12 @@ function persistSettings() {
       musicEnabled: !musicMuted,
       kickEnabled: !kickMuted,
       noiseEnabled,
+      focusModeEnabled,
+      focusTimerMinutes,
+      focusTimerRunning,
+      focusTimerEndsAtMs,
+      focusTodoItems,
+      focusNotes: document.getElementById("focusNotes")?.value || "",
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(payload));
   } catch {
@@ -1136,6 +1366,9 @@ function applyStoredSettings() {
     applySoundSettingsToEngine();
     syncMoodPresetControl();
     syncToggleButtons();
+    setFocusMode(false, { persist: false });
+    renderFocusTimer();
+    renderFocusTodoList();
     return;
   }
 
@@ -1264,6 +1497,56 @@ function applyStoredSettings() {
     if (typeof saved.noiseEnabled === "boolean") {
       setNoiseEnabled(saved.noiseEnabled, { markCustom: false });
     }
+
+    if (typeof saved.focusModeEnabled === "boolean") {
+      setFocusMode(saved.focusModeEnabled, { persist: false });
+    } else {
+      setFocusMode(false, { persist: false });
+    }
+
+    if (typeof saved.focusTimerMinutes === "number") {
+      focusTimerMinutes = Math.max(5, Math.min(60, Math.round(saved.focusTimerMinutes)));
+    } else {
+      focusTimerMinutes = 25;
+    }
+    const timerCtrl = document.getElementById("focusTimerMinutesCtrl");
+    if (timerCtrl) {
+      timerCtrl.value = `${focusTimerMinutes}`;
+    }
+
+    focusTodoItems = Array.isArray(saved.focusTodoItems)
+      ? saved.focusTodoItems
+          .filter((item) => item && typeof item.text === "string")
+          .slice(0, 20)
+          .map((item) => ({
+            text: item.text.slice(0, 120),
+            done: !!item.done,
+          }))
+      : [];
+    renderFocusTodoList();
+
+    const notesEl = document.getElementById("focusNotes");
+    if (notesEl && typeof saved.focusNotes === "string") {
+      notesEl.value = saved.focusNotes;
+    }
+
+    const savedEndsAt = typeof saved.focusTimerEndsAtMs === "number" ? saved.focusTimerEndsAtMs : 0;
+    if (saved.focusTimerRunning && savedEndsAt > Date.now()) {
+      focusTimerRunning = true;
+      focusTimerEndsAtMs = savedEndsAt;
+      if (focusTimerIntervalId) {
+        clearInterval(focusTimerIntervalId);
+      }
+      focusTimerIntervalId = setInterval(renderFocusTimer, 250);
+    } else {
+      focusTimerRunning = false;
+      focusTimerEndsAtMs = 0;
+      if (focusTimerIntervalId) {
+        clearInterval(focusTimerIntervalId);
+        focusTimerIntervalId = null;
+      }
+    }
+    renderFocusTimer();
   } finally {
     persistSuppressed = false;
   }
@@ -2217,7 +2500,7 @@ document.getElementById("noiseToggleBtn").addEventListener("click", () => {
 
 document.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
-  if (e.repeat || (key !== "m" && key !== "n")) {
+  if (e.repeat || (key !== "m" && key !== "k" && key !== "n" && key !== "f")) {
     return;
   }
   const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : "";
@@ -2228,6 +2511,8 @@ document.addEventListener("keydown", (e) => {
     setMusicEnabled(musicMuted);
   } else if (key === "k") {
     setKickEnabled(kickMuted);
+  } else if (key === "f") {
+    setFocusMode(!focusModeEnabled);
   } else {
     setNoiseEnabled(!noiseEnabled);
   }
@@ -2235,6 +2520,7 @@ document.addEventListener("keydown", (e) => {
 
 window.addEventListener("resize", rsz);
 buildCards();
+bindFocusModeControls();
 applyControlTooltips();
 syncMoodPresetControl();
 applyScale(SCALE_MODE);
