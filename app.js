@@ -443,6 +443,12 @@ let focusTimerRunning = false;
 let focusTimerEndsAtMs = 0;
 let focusTimerIntervalId = null;
 let focusTodoItems = [];
+const TIMER_START_SOUND_PATH = "assets/timer-start.mp3";
+const TIMER_END_SOUND_PATH = "assets/timer-end.mp3";
+const focusTimerStartSound = new Audio(TIMER_START_SOUND_PATH);
+const focusTimerEndSound = new Audio(TIMER_END_SOUND_PATH);
+focusTimerStartSound.preload = "auto";
+focusTimerEndSound.preload = "auto";
 
 const vcur = [{}, {}, {}, {}];
 const voiceState = Array.from({ length: 4 }, () => ({
@@ -1102,6 +1108,16 @@ function formatFocusDuration(totalSeconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function playFocusTimerStartSound() {
+  focusTimerStartSound.currentTime = 0;
+  focusTimerStartSound.play().catch(() => {});
+}
+
+function playFocusTimerEndSound() {
+  focusTimerEndSound.currentTime = 0;
+  focusTimerEndSound.play().catch(() => {});
+}
+
 function renderFocusTimer() {
   const display = document.getElementById("focusTimerDisplay");
   const startBtn = document.getElementById("focusTimerStartBtn");
@@ -1124,6 +1140,7 @@ function renderFocusTimer() {
   const remainingSeconds = Math.ceil(remainingMs / 1000);
   display.textContent = formatFocusDuration(remainingSeconds);
   if (remainingSeconds <= 0) {
+    playFocusTimerEndSound();
     focusTimerRunning = false;
     focusTimerEndsAtMs = 0;
     if (focusTimerIntervalId) {
@@ -1143,6 +1160,7 @@ function startFocusTimer() {
   }
   focusTimerIntervalId = setInterval(renderFocusTimer, 250);
   renderFocusTimer();
+  playFocusTimerStartSound();
   persistSettings();
 }
 

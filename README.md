@@ -30,10 +30,17 @@ Use the `FOCUS ON/OFF` button in the header (or press `F`) to switch between the
 Focus Mode includes:
 
 - Pomodoro timer with start/pause/reset and adjustable session length (5-60 min)
+- Start/end timer sounds from `assets/timer-start.mp3` and `assets/timer-end.mp3`
 - Quick todo capture (`Enter` or `ADD`) with checkbox completion state
 - Quick notes panel for session scratch notes
 
 Focus mode state, timer state, todos, and notes are persisted to `localStorage`.
+
+### Timer behavior notes (current)
+
+- Pressing `START` plays `assets/timer-start.mp3`.
+- Hitting `00:00` plays `assets/timer-end.mp3`.
+- While running, moving the timer slider currently reapplies the timer immediately on release (known behavior to refine next).
 
 ## Mood Presets
 
@@ -77,3 +84,5 @@ python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output 
 - Adjust colors to match standard contrast while keeping aesthetics
 - Option to randomize kick pattern
 - Option to mute kick or add kick level slider
+- Focus timer: click timer text to type a value (with validation and clear errors)
+- Focus timer: refine running-slider behavior (pause on drag instead of auto-restart + repeated start sound)
