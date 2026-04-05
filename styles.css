@@ -222,6 +222,16 @@ body.focus-mode .hdr{margin-bottom:12px;}
   border-color:var(--a);
   color:var(--a);
 }
+.focus-btn-primary{
+  border-color:#35c759;
+  color:#35c759;
+  background:rgba(53,199,89,.14);
+  font-size:12px;
+  padding:7px 13px;
+}
+.focus-btn-primary:hover{
+  background:rgba(53,199,89,.22);
+}
 .focus-mini{
   font-size:10px;
   color:var(--a);

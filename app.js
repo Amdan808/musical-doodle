@@ -1339,16 +1339,9 @@ function bindFocusModeControls() {
 
   const timerTextInput = document.getElementById("focusTimerTextInput");
   const timerApplyBtn = document.getElementById("focusTimerApplyBtn");
-  const timerCancelBtn = document.getElementById("focusTimerCancelBtn");
   if (timerApplyBtn && timerTextInput) {
     timerApplyBtn.addEventListener("click", () => {
       applyTypedFocusTimerMinutes(timerTextInput.value);
-    });
-  }
-  if (timerCancelBtn) {
-    timerCancelBtn.addEventListener("click", () => {
-      closeFocusTimerEditor();
-      setFocusTimerError("");
     });
   }
   if (timerTextInput) {
