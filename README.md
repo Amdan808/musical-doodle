@@ -42,6 +42,7 @@ Focus mode state, timer state, todos, and notes are persisted to `localStorage`.
 - Pressing `START` plays `assets/timer-start.mp3`.
 - Hitting `00:00` plays `assets/timer-end.mp3`.
 - While running, touching/dragging the slider pauses the timer so adjustments do not auto-restart playback.
+- Timer text opens a direct minute editor with a single `SET` action (input width `6rem`).
 
 ## Mood Presets
 
@@ -85,3 +86,5 @@ python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output 
 - Adjust colors to match standard contrast while keeping aesthetics
 - Option to randomize kick pattern
 - Option to mute kick or add kick level slider
+- Focus todo: play a dedicated sound when a task is added
+- Focus todo: add delete option for existing tasks

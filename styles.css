@@ -232,6 +232,16 @@ body.focus-mode .hdr{margin-bottom:12px;}
 .focus-btn-primary:hover{
   background:rgba(53,199,89,.22);
 }
+.focus-btn-todo-add{
+  border-color:#34c75940;
+  color:#35c759;
+  background:rgb(53 199 89 / 5%);
+}
+.focus-btn-todo-add:hover{
+  border-color:#35c759;
+  color:#6de58a;
+  background:rgb(53 199 89 / 16%);
+}
 .focus-mini{
   font-size:10px;
   color:var(--a);
