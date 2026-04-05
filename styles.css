@@ -223,11 +223,11 @@ body.focus-mode .hdr{margin-bottom:12px;}
   color:var(--a);
 }
 .focus-btn-primary{
-  border-color:#35c759;
+  border-color:#34c75940;
   color:#35c759;
-  background:rgba(53,199,89,.14);
+  background:rgb(53 199 89 / 5%);
   font-size:12px;
-  padding:7px 13px;
+  padding:5px 7px;
 }
 .focus-btn-primary:hover{
   background:rgba(53,199,89,.22);
@@ -264,7 +264,7 @@ body.focus-mode .hdr{margin-bottom:12px;}
   gap:7px;
 }
 #focusTimerTextInput{
-  width:62px;
+  width:6rem;
   font-family:'Share Tech Mono','Courier New',monospace;
   font-size:14px;
   color:var(--tx);
