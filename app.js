@@ -443,6 +443,7 @@ let focusTimerRunning = false;
 let focusTimerEndsAtMs = 0;
 let focusTimerIntervalId = null;
 let focusTodoItems = [];
+let focusTimerEditing = false;
 const TIMER_START_SOUND_PATH = "assets/timer-start.mp3";
 const TIMER_END_SOUND_PATH = "assets/timer-end.mp3";
 const focusTimerStartSound = new Audio(TIMER_START_SOUND_PATH);
@@ -1118,6 +1119,68 @@ function playFocusTimerEndSound() {
   focusTimerEndSound.play().catch(() => {});
 }
 
+function setFocusTimerError(message = "") {
+  const errorEl = document.getElementById("focusTimerError");
+  if (!errorEl) {
+    return;
+  }
+  errorEl.textContent = message;
+}
+
+function openFocusTimerEditor() {
+  if (focusTimerEditing) {
+    return;
+  }
+  focusTimerEditing = true;
+  const editWrap = document.getElementById("focusTimerEdit");
+  const input = document.getElementById("focusTimerTextInput");
+  if (editWrap) {
+    editWrap.hidden = false;
+  }
+  if (input) {
+    input.value = `${focusTimerMinutes}`;
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 0);
+  }
+  setFocusTimerError("");
+}
+
+function closeFocusTimerEditor() {
+  focusTimerEditing = false;
+  const editWrap = document.getElementById("focusTimerEdit");
+  if (editWrap) {
+    editWrap.hidden = true;
+  }
+}
+
+function applyTypedFocusTimerMinutes(rawValue) {
+  const parsed = Number.parseInt(`${rawValue || ""}`.trim(), 10);
+  if (!Number.isFinite(parsed)) {
+    setFocusTimerError("Enter minutes as a number (5-60).");
+    return false;
+  }
+  if (parsed < 5 || parsed > 60) {
+    setFocusTimerError("Minutes must be between 5 and 60.");
+    return false;
+  }
+  focusTimerMinutes = parsed;
+  const minutesCtrl = document.getElementById("focusTimerMinutesCtrl");
+  if (minutesCtrl) {
+    minutesCtrl.value = `${focusTimerMinutes}`;
+  }
+  if (focusTimerRunning) {
+    pauseFocusTimer({ preserveMinutes: true });
+  } else {
+    renderFocusTimer();
+    persistSettings();
+  }
+  setFocusTimerError("");
+  closeFocusTimerEditor();
+  return true;
+}
+
 function renderFocusTimer() {
   const display = document.getElementById("focusTimerDisplay");
   const startBtn = document.getElementById("focusTimerStartBtn");
@@ -1164,21 +1227,26 @@ function startFocusTimer() {
   persistSettings();
 }
 
-function pauseFocusTimer() {
+function pauseFocusTimer(options = {}) {
+  const { preserveMinutes = false } = options;
   if (!focusTimerRunning) {
     return;
   }
-  const remainingMs = Math.max(0, focusTimerEndsAtMs - Date.now());
-  focusTimerMinutes = Math.max(5, Math.min(60, Math.ceil(remainingMs / 60000)));
+  if (!preserveMinutes) {
+    const remainingMs = Math.max(0, focusTimerEndsAtMs - Date.now());
+    focusTimerMinutes = Math.max(5, Math.min(60, Math.ceil(remainingMs / 60000)));
+  }
   focusTimerRunning = false;
   focusTimerEndsAtMs = 0;
   if (focusTimerIntervalId) {
     clearInterval(focusTimerIntervalId);
     focusTimerIntervalId = null;
   }
-  const minutesCtrl = document.getElementById("focusTimerMinutesCtrl");
-  if (minutesCtrl) {
-    minutesCtrl.value = `${focusTimerMinutes}`;
+  if (!preserveMinutes) {
+    const minutesCtrl = document.getElementById("focusTimerMinutesCtrl");
+    if (minutesCtrl) {
+      minutesCtrl.value = `${focusTimerMinutes}`;
+    }
   }
   renderFocusTimer();
   persistSettings();
@@ -1262,14 +1330,56 @@ function bindFocusModeControls() {
     timerResetBtn.addEventListener("click", resetFocusTimer);
   }
 
+  const timerDisplayBtn = document.getElementById("focusTimerDisplay");
+  if (timerDisplayBtn) {
+    timerDisplayBtn.addEventListener("click", () => {
+      openFocusTimerEditor();
+    });
+  }
+
+  const timerTextInput = document.getElementById("focusTimerTextInput");
+  const timerApplyBtn = document.getElementById("focusTimerApplyBtn");
+  const timerCancelBtn = document.getElementById("focusTimerCancelBtn");
+  if (timerApplyBtn && timerTextInput) {
+    timerApplyBtn.addEventListener("click", () => {
+      applyTypedFocusTimerMinutes(timerTextInput.value);
+    });
+  }
+  if (timerCancelBtn) {
+    timerCancelBtn.addEventListener("click", () => {
+      closeFocusTimerEditor();
+      setFocusTimerError("");
+    });
+  }
+  if (timerTextInput) {
+    timerTextInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applyTypedFocusTimerMinutes(timerTextInput.value);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeFocusTimerEditor();
+        setFocusTimerError("");
+      }
+    });
+  }
+
   const timerMinutesCtrl = document.getElementById("focusTimerMinutesCtrl");
   if (timerMinutesCtrl) {
+    let wasRunningOnPointerDown = false;
+    timerMinutesCtrl.addEventListener("pointerdown", () => {
+      wasRunningOnPointerDown = focusTimerRunning;
+      if (focusTimerRunning) {
+        pauseFocusTimer({ preserveMinutes: true });
+      }
+    });
     timerMinutesCtrl.addEventListener("input", (e) => {
       focusTimerMinutes = Math.max(5, Math.min(60, +e.target.value || 25));
-      if (focusTimerRunning) {
-        startFocusTimer();
+      renderFocusTimer();
+      if (wasRunningOnPointerDown) {
+        setFocusTimerError("Timer paused while adjusting. Press START to resume.");
       } else {
-        renderFocusTimer();
+        setFocusTimerError("");
       }
       persistSettings();
     });

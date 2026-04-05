@@ -233,11 +233,44 @@ body.focus-mode .hdr{margin-bottom:12px;}
   letter-spacing:.1em;
 }
 .focus-timer-display{
+  border:1px solid transparent;
+  background:transparent;
+  text-align:left;
+  padding:0;
+  cursor:pointer;
   font-family:'Rajdhani',sans-serif;
   font-size:36px;
   line-height:1;
   color:var(--a);
   letter-spacing:.08em;
+}
+.focus-timer-display:focus{
+  outline:none;
+  border-color:var(--a);
+}
+.focus-timer-edit{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+#focusTimerTextInput{
+  width:62px;
+  font-family:'Share Tech Mono','Courier New',monospace;
+  font-size:14px;
+  color:var(--tx);
+  background:#040403;
+  border:1px solid var(--bd);
+  padding:5px 7px;
+}
+#focusTimerTextInput:focus{
+  outline:none;
+  border-color:var(--a);
+}
+.focus-timer-error{
+  min-height:14px;
+  font-size:9px;
+  letter-spacing:.08em;
+  color:var(--red);
 }
 #focusTodoInput,
 #focusNotes{
