@@ -16,7 +16,7 @@ Interactive math-inspired synthesis experiments in Web Audio + Python.
 - 4 harmony oscillators with per-oscillator level controls
 - Master + 6 analysis scopes (4 harmony, kick, hi-hat)
 - Brown/white/pink noise with level and ON/OFF control
-- Music ON/OFF and Noise ON/OFF toggles
+- Music/Kick/Noise ON/OFF toggles plus kick level slider
 - Focus Mode layout toggle with Pomodoro, quick todo, and quick notes
 - Mood Presets templates (Night Drive, Deep Focus, Warm Bloom, Aurora Mist)
 - Shortcut keys: `M` = music toggle, `K` = kick toggle, `N` = noise toggle, `F` = focus mode
@@ -85,6 +85,5 @@ python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output 
 - Improve typography
 - Adjust colors to match standard contrast while keeping aesthetics
 - Option to randomize kick pattern
-- Option to mute kick or add kick level slider
 - Focus todo: play a dedicated sound when a task is added
 - Focus todo: add delete option for existing tasks

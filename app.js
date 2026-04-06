@@ -399,6 +399,7 @@ let BPM = 72;
 let ODD_SL = 0.03;
 let NOISE_TYPE = "brown";
 let NOISE_LVL = 0.05;
+let KICK_LVL = 1;
 let SOUND_SETTINGS = { ...DEFAULT_SOUND_SETTINGS };
 const OSC_LVLS = [1.00, 1.00, 0.65, 0.65];
 const SAW_LEGATO_VOICE_INDEX = 3;
@@ -883,9 +884,13 @@ function sanitizeSoundSettings(source) {
   return next;
 }
 
+function kickBusGainValue() {
+  return Math.max(0, SOUND_SETTINGS.kickBusGain * KICK_LVL);
+}
+
 function applySoundSettingsToEngine() {
   if (kickBus) {
-    kickBus.gain.value = SOUND_SETTINGS.kickBusGain;
+    kickBus.gain.value = kickBusGainValue();
   }
   if (hatBus) {
     hatBus.gain.value = SOUND_SETTINGS.hatBusGain;
@@ -1422,6 +1427,7 @@ function applyControlTooltips() {
     ["hatCtrl", "Hi-hat pattern (auto cycles every 8 bars)"],
     ["bpmCtrl", "Tempo in BPM"],
     ["oddCtrl", "Odd-ratio probability"],
+    ["kickLvlCtrl", "Kick drum level"],
     ["noiseCtrl", "Noise color"],
     ["noiseLvlCtrl", "Noise level"],
     ["revCtrl", "Reverb amount"],
@@ -1459,6 +1465,7 @@ function persistSettings() {
       hatMode: HAT_MODE,
       noiseType: NOISE_TYPE,
       noiseLevel: NOISE_LVL,
+      kickLevel: KICK_LVL,
       reverb: rGain
         ? rGain.gain.value
         : Math.max(0, Math.min(1, +(document.getElementById("revCtrl")?.value || 80) / 100)),
@@ -1565,6 +1572,19 @@ function applyStoredSettings() {
     if (noiseLvlCtrl && noiseLvlVal) {
       noiseLvlCtrl.value = `${Math.round(NOISE_LVL * 100)}`;
       noiseLvlVal.textContent = `${Math.round(NOISE_LVL * 100)}%`;
+    }
+
+    if (typeof saved.kickLevel === "number") {
+      KICK_LVL = Math.max(0, Math.min(1, saved.kickLevel));
+    } else {
+      KICK_LVL = 1;
+    }
+    const kickLvlCtrl = document.getElementById("kickLvlCtrl");
+    const kickLvlVal = document.getElementById("kickLvlVal");
+    if (kickLvlCtrl && kickLvlVal) {
+      const kickPct = Math.round(KICK_LVL * 100);
+      kickLvlCtrl.value = `${kickPct}`;
+      kickLvlVal.textContent = `${kickPct}%`;
     }
 
     if (saved.soundSettings) {
@@ -1689,7 +1709,7 @@ function initAudio() {
   mGain = actx.createGain();
   mGain.gain.value = 0.58;
   kickBus = actx.createGain();
-  kickBus.gain.value = SOUND_SETTINGS.kickBusGain;
+  kickBus.gain.value = kickBusGainValue();
   hatBus = actx.createGain();
   hatBus.gain.value = SOUND_SETTINGS.hatBusGain;
   noiseBus = actx.createGain();
@@ -2569,6 +2589,17 @@ document.getElementById("oddCtrl").addEventListener("input", (e) => {
   markMoodPresetCustom();
   ODD_SL = +e.target.value / 100;
   document.getElementById("oddVal").textContent = `${e.target.value}%`;
+  persistSettings();
+});
+
+document.getElementById("kickLvlCtrl").addEventListener("input", (e) => {
+  markMoodPresetCustom();
+  const nextPct = Math.max(0, Math.min(100, +e.target.value || 0));
+  KICK_LVL = nextPct / 100;
+  if (kickBus) {
+    kickBus.gain.value = kickBusGainValue();
+  }
+  document.getElementById("kickLvlVal").textContent = `${nextPct}%`;
   persistSettings();
 });
 
