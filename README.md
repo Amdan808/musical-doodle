@@ -32,7 +32,8 @@ Focus Mode includes:
 - Pomodoro timer with start/pause/reset and adjustable session length (5-60 min)
 - Start/end timer sounds from `assets/timer-start.mp3` and `assets/timer-end.mp3`
 - Click timer text to type minutes directly (validated to 5-60 with inline errors)
-- Quick todo capture (`Enter` or `ADD`) with checkbox completion state
+- Quick todo capture (`Enter` or `ADD`) with `assets/task-add.mp3` cue
+- Todo delete action (`DEL` button, `Delete/Backspace` on focused row, or `Delete/Backspace` in empty input) with `assets/task-remove.mp3` cue
 - Quick notes panel for session scratch notes
 
 Focus mode state, timer state, todos, and notes are persisted to `localStorage`.
@@ -85,5 +86,3 @@ python3 scripts/ratio_rhythm_music.py --seed 42 --duration 30 --bpm 96 --output 
 - Improve typography
 - Adjust colors to match standard contrast while keeping aesthetics
 - Option to randomize kick pattern
-- Focus todo: play a dedicated sound when a task is added
-- Focus todo: add delete option for existing tasks

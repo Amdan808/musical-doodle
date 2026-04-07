@@ -447,10 +447,16 @@ let focusTodoItems = [];
 let focusTimerEditing = false;
 const TIMER_START_SOUND_PATH = "assets/timer-start.mp3";
 const TIMER_END_SOUND_PATH = "assets/timer-end.mp3";
+const TASK_ADD_SOUND_PATH = "assets/task-add.mp3";
+const TASK_REMOVE_SOUND_PATH = "assets/task-remove.mp3";
 const focusTimerStartSound = new Audio(TIMER_START_SOUND_PATH);
 const focusTimerEndSound = new Audio(TIMER_END_SOUND_PATH);
+const focusTodoAddSound = new Audio(TASK_ADD_SOUND_PATH);
+const focusTodoRemoveSound = new Audio(TASK_REMOVE_SOUND_PATH);
 focusTimerStartSound.preload = "auto";
 focusTimerEndSound.preload = "auto";
+focusTodoAddSound.preload = "auto";
+focusTodoRemoveSound.preload = "auto";
 
 const vcur = [{}, {}, {}, {}];
 const voiceState = Array.from({ length: 4 }, () => ({
@@ -1124,6 +1130,16 @@ function playFocusTimerEndSound() {
   focusTimerEndSound.play().catch(() => {});
 }
 
+function playFocusTodoAddSound() {
+  focusTodoAddSound.currentTime = 0;
+  focusTodoAddSound.play().catch(() => {});
+}
+
+function playFocusTodoRemoveSound() {
+  focusTodoRemoveSound.currentTime = 0;
+  focusTodoRemoveSound.play().catch(() => {});
+}
+
 function setFocusTimerError(message = "") {
   const errorEl = document.getElementById("focusTimerError");
   if (!errorEl) {
@@ -1282,6 +1298,7 @@ function renderFocusTodoList() {
     const item = focusTodoItems[i];
     const li = document.createElement("li");
     li.className = `focus-todo-item${item.done ? " done" : ""}`;
+    li.tabIndex = 0;
     const toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.className = "focus-todo-toggle";
@@ -1294,8 +1311,23 @@ function renderFocusTodoList() {
     const text = document.createElement("span");
     text.className = "focus-todo-text";
     text.textContent = item.text;
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "focus-todo-del";
+    removeBtn.textContent = "DEL";
+    removeBtn.setAttribute("aria-label", `Delete task: ${item.text}`);
+    removeBtn.addEventListener("click", () => {
+      removeFocusTodo(i);
+    });
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        removeFocusTodo(i);
+      }
+    });
     li.appendChild(toggle);
     li.appendChild(text);
+    li.appendChild(removeBtn);
     list.appendChild(li);
   }
 }
@@ -1303,14 +1335,27 @@ function renderFocusTodoList() {
 function addFocusTodo(raw) {
   const text = `${raw || ""}`.trim();
   if (!text) {
-    return;
+    return false;
   }
   focusTodoItems.unshift({ text: text.slice(0, 120), done: false });
   if (focusTodoItems.length > 20) {
     focusTodoItems = focusTodoItems.slice(0, 20);
   }
   renderFocusTodoList();
+  playFocusTodoAddSound();
   persistSettings();
+  return true;
+}
+
+function removeFocusTodo(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= focusTodoItems.length) {
+    return false;
+  }
+  focusTodoItems.splice(index, 1);
+  renderFocusTodoList();
+  playFocusTodoRemoveSound();
+  persistSettings();
+  return true;
 }
 
 function bindFocusModeControls() {
@@ -1389,8 +1434,10 @@ function bindFocusModeControls() {
     if (!todoInput) {
       return;
     }
-    addFocusTodo(todoInput.value);
-    todoInput.value = "";
+    const added = addFocusTodo(todoInput.value);
+    if (added) {
+      todoInput.value = "";
+    }
   };
   if (todoAddBtn) {
     todoAddBtn.addEventListener("click", submitTodo);
@@ -1400,6 +1447,11 @@ function bindFocusModeControls() {
       if (e.key === "Enter") {
         e.preventDefault();
         submitTodo();
+      } else if ((e.key === "Backspace" || e.key === "Delete") && !todoInput.value.trim()) {
+        const removed = removeFocusTodo(0);
+        if (removed) {
+          e.preventDefault();
+        }
       }
     });
   }
